@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Car Scene - Mobile Controls</title>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/examples/jsm/loaders/GLTFLoader.js": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
+        "three/examples/jsm/loaders/DRACOLoader.js": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/DRACOLoader.js"
+      }
+    }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;700;900&display=swap');
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #a0d7e6;
+            font-family: 'Press Start 2P', cursive, sans-serif;
+            overscroll-behavior: none;
+            touch-action: none;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            /* Increased to top everything */
+            transition: opacity 0.5s ease-out;
+            gap: 20px;
+            padding: 30px;
+            text-align: center;
+        }
+
+        #loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #loading-text {
+            font-size: clamp(0.9rem, 4.5vw, 2rem);
+            line-height: 1.4;
+            white-space: nowrap;
+            letter-spacing: 1px;
+        }
+
+        #loading-progress {
+            font-size: clamp(1rem, 4vw, 1.5rem);
+            color: #55efc4;
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-shadow: 1px 1px 3px black;
+            z-index: 50;
+            font-size: clamp(1rem, 4vw, 1.5rem);
+            pointer-events: none;
+        }
+
+        #score {
+            margin-bottom: 5px;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            display: none;
+            z-index: 101;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .game-over-card {
+            background: #fdcb6e;
+            /* Vibrant Cartoon Yellow */
+            border: 8px solid #2d3436;
+            /* Thick Cartoon Border */
+            padding: 40px 30px;
+            width: 90%;
+            max-width: 550px;
+            border-radius: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 15px 15px 0px rgba(0, 0, 0, 0.3);
+            transform: scale(0.8);
+            animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        @keyframes bounceIn {
+            to {
+                transform: scale(1);
+            }
+        }
+
+        .game-over-title {
+            color: #ff7675;
+            /* Soft Red */
+            font-size: clamp(1.8rem, 6vw, 2.6rem);
+            margin: 0;
+            text-align: center;
+            line-height: 1.2;
+            white-space: nowrap;
+            text-shadow: 4px 4px 0px #2d3436;
+            /* Hard Shadow */
+            -webkit-text-stroke: 0px;
+            background: none;
+            -webkit-background-clip: initial;
+            background-clip: initial;
+            -webkit-text-fill-color: initial;
+        }
+
+        #final-score-container {
+            font-size: 1.1em;
+            color: #fdcb6e;
+            /* Yellow */
+            background: #2d3436;
+            padding: 15px 25px;
+            border-radius: 15px;
+            margin-bottom: 5px;
+            border: 4px solid #000;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #final-score-value {
+            color: #55efc4;
+            /* Bright Cyan */
+            font-size: 1.6em;
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        #restart-button {
+            background: #55efc4;
+            /* Bright Green */
+            color: #2d3436;
+            padding: 20px 40px;
+            border: 6px solid #2d3436;
+            border-radius: 20px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1em;
+            cursor: pointer;
+            box-shadow: 0 10px 0px #00b894;
+            transition: all 0.1s;
+            margin-top: 10px;
+            text-transform: uppercase;
+        }
+
+        #restart-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 0px #00b894;
+            background: #81ecec;
+        }
+
+        #restart-button:active {
+            transform: translateY(8px);
+            box-shadow: 0 2px 0px #00b894;
+        }
+
+        #home-button {
+            background: #74b9ff;
+            /* Bright Blue */
+            color: #2d3436;
+            padding: 20px 40px;
+            border: 6px solid #2d3436;
+            border-radius: 20px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1em;
+            cursor: pointer;
+            box-shadow: 0 10px 0px #0984e3;
+            transition: all 0.1s;
+            margin-top: 10px;
+            text-transform: uppercase;
+        }
+
+        #home-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 0px #0984e3;
+            background: #a29bfe;
+        }
+
+        #home-button:active {
+            transform: translateY(8px);
+            box-shadow: 0 2px 0px #0984e3;
+        }
+
+
+
+        /* Decorative Background Elements */
+        .bg-glow {
+            position: absolute;
+            width: 40vw;
+            height: 40vw;
+            background: radial-gradient(circle, rgba(255, 0, 0, 0.1) 0%, rgba(255, 0, 0, 0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: -1;
+            filter: blur(50px);
+            animation: drift 15s infinite alternate ease-in-out;
+        }
+
+        @keyframes drift {
+            from {
+                transform: translate(-10%, -10%);
+            }
+
+            to {
+                transform: translate(10%, 10%);
+            }
+        }
+
+        #countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 8em;
+            font-weight: bold;
+            text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.8);
+            z-index: 200;
+            display: none;
+            pointer-events: none;
+        }
+
+
+        #settings-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 55px;
+            height: 55px;
+            background: linear-gradient(135deg, #ffffff, #dff9fb);
+            border: 4px solid #2d3436;
+            border-radius: 50%;
+            z-index: 600;
+            /* Increased to stay above game-over overlay */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.2em;
+            cursor: pointer;
+            box-shadow: 0 6px 0px rgba(0, 0, 0, 0.2);
+            user-select: none;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #settings-button:hover {
+            background-color: #f0f0f0;
+            transform: scale(1.1);
+        }
+
+        #settings-button:hover svg {
+            transform: rotate(90deg);
+        }
+
+        #settings-button svg {
+            width: 35px;
+            height: 35px;
+            fill: #2d3436;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Updated Modal Styles - Shared Generic Class */
+        .modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 1500;
+            display: none;
+            /* Controlled by JS */
+        }
+
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 420px;
+            background: #fdcb6e;
+            /* Vibrant Cartoon Yellow */
+            color: #2d3436;
+            padding: 30px;
+            border-radius: 25px;
+            border: 6px solid #2d3436;
+            z-index: 2000;
+            display: none;
+            /* Controlled by JS */
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 12px 12px 0px rgba(0, 0, 0, 0.2);
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        .modal h2,
+        .modal-title {
+            margin-top: 5px;
+            text-align: center;
+            color: #fff;
+            font-size: 1.4em;
+            letter-spacing: 3px;
+            margin-bottom: 20px;
+            -webkit-text-stroke: 3px #2d3436;
+            paint-order: stroke fill;
+        }
+
+        .modal-button {
+            margin-top: 10px;
+            padding: 18px;
+            background: #fff;
+            color: #2d3436;
+            border: 5px solid #2d3436;
+            border-radius: 18px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-family: 'Press Start 2P', cursive;
+            text-transform: uppercase;
+            font-weight: 900;
+            box-shadow: 0 8px 0px #2d3436;
+            transition: all 0.1s;
+        }
+
+        .modal-button:hover {
+            transform: translateY(2px);
+            box-shadow: 0 6px 0px #2d3436;
+            background: #f1f2f6;
+        }
+
+        .modal-button:active {
+            transform: translateY(8px);
+            box-shadow: 0 0px 0px #2d3436;
+        }
+
+        .setting-row {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: rgba(255, 255, 255, 0.5);
+            /* More opaque for contrast */
+            padding: 15px;
+            border-radius: 18px;
+            border: 4px solid #2d3436;
+        }
+
+        .setting-label {
+            font-size: 0.65em;
+            color: #2d3436;
+            text-transform: uppercase;
+            font-weight: 900;
+        }
+
+        /* Cartoon Volume Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 18px;
+            cursor: pointer;
+            background: #2d3436;
+            border-radius: 9px;
+            border: 2px solid #2d3436;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 32px;
+            width: 32px;
+            border-radius: 50%;
+            background: #55efc4;
+            /* Grass Green - Matching Game */
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -9px;
+            border: 5px solid #2d3436;
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Cartoon Camera View Tiles */
+        .camera-options,
+        .control-options {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .camera-tile,
+        .control-tile {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .camera-tile:hover,
+        .control-tile:hover {
+            transform: scale(1.05);
+        }
+
+        .camera-preview {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: #fff;
+            border: 4px solid #2d3436;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .camera-tile.active .camera-preview {
+            border-color: #55efc4;
+            /* Active Highlight Green */
+            transform: translateY(-4px);
+            box-shadow: 0px 8px 0px #00b894;
+        }
+
+        .camera-tile img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .camera-tile:hover img,
+        .camera-tile.active img {
+            opacity: 1.0;
+        }
+
+        .camera-tile span {
+            margin-top: 12px;
+            font-size: 0.5em;
+            color: #2d3436;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .camera-tile.active span {
+            color: #00b894;
+        }
+
+        /* Simplified Text Buttons for Steering Mode */
+        .control-tile {
+            flex: 1;
+            padding: 15px 10px;
+            background: #fff;
+            border: 4px solid #2d3436;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
+            transition: all 0.23s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .control-tile span {
+            margin-top: 0 !important;
+            font-size: 0.55em !important;
+            letter-spacing: 1.5px;
+            color: #2d3436;
+            font-weight: 900;
+        }
+
+        .control-tile.active {
+            background: #55efc4;
+            transform: translateY(-3px);
+            box-shadow: 0px 6px 0px #00b894;
+        }
+
+        .control-tile.active span {
+            color: #fff;
+            -webkit-text-stroke: 1.5px #2d3436;
+            paint-order: stroke fill;
+        }
+
+        #steering-mode-row {
+            display: none;
+        }
+
+        /* Maps Selection Grid specific tweaks */
+        .map-selection-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            width: 100%;
+        }
+
+        .map-tile {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: #fff;
+            border: 4px solid #2d3436;
+            border-radius: 12px;
+            padding: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
+        }
+
+        .map-tile:hover {
+            transform: scale(1.05);
+        }
+
+        .map-tile.active {
+            background: #55efc4;
+            transform: translateY(-2px);
+            box-shadow: 0px 6px 0px #00b894;
+        }
+
+        .map-preview {
+            width: 100%;
+            height: 45px;
+            border-radius: 8px;
+            border: 2px solid #2d3436;
+        }
+
+        .city-preview {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+        }
+
+        .cyber-preview {
+            background: linear-gradient(135deg, #000000, #9b59b6);
+        }
+
+        .desert-preview {
+            background: linear-gradient(135deg, #e67e22, #f1c40f);
+        }
+
+        .snow-preview {
+            background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+        }
+
+        .map-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            text-align: center;
+        }
+
+        .map-name {
+            font-size: 0.38em;
+            font-weight: 900;
+            color: #2d3436;
+        }
+
+        .map-desc {
+            font-size: 0.25em;
+            color: #636e72;
+            line-height: 1.2;
+        }
+
+        .map-tile.active .map-name {
+            color: #fff;
+            -webkit-text-stroke: 1px #2d3436;
+        }
+
+        /* Chunky Graphic Button */
+        /* Mobile & Tablet Adjustments for Modals */
+        @media (max-width: 1024px) {
+            .modal {
+                width: 95%;
+                padding: 15px;
+                gap: 12px;
+                border: 4px solid #2d3436;
+                border-radius: 20px;
+            }
+
+            .modal h2,
+            .modal-title {
+                font-size: 1.1rem;
+                -webkit-text-stroke: 1.5px #2d3436;
+                margin-bottom: 15px;
+            }
+
+            .modal-button {
+                padding: 14px;
+                font-size: 0.75em;
+            }
+
+            .map-selection-grid {
+                gap: 10px;
+            }
+
+            .map-tile {
+                padding: 6px;
+            }
+
+            .setting-label {
+                font-size: 0.55em;
+                letter-spacing: 1.5px;
+            }
+
+            .camera-options {
+                gap: 12px;
+            }
+
+            .camera-tile span {
+                font-size: 0.5em;
+                margin-top: 10px;
+                letter-spacing: 1px;
+            }
+
+            #close-settings {
+                padding: 18px;
+                font-size: 0.85em;
+                border-width: 4px;
+                box-shadow: 0 5px 0px #2d3436;
+            }
+
+            /* Extra Mobile Polish for Game Over */
+            .game-over-card {
+                max-width: 320px;
+                padding: 30px 15px;
+                gap: 15px;
+            }
+
+            .game-over-title {
+                font-size: 1.7rem;
+                white-space: normal;
+            }
+
+            #final-score-container {
+                font-size: 0.85em;
+                padding: 12px 20px;
+                gap: 10px;
+            }
+
+            #final-score-value {
+                font-size: 1.4em;
+            }
+
+            #restart-button {
+                padding: 15px 30px;
+                font-size: 0.8em;
+                box-shadow: 0 6px 0px #00b894;
+            }
+
+            #steering-mode-row {
+                display: flex;
+            }
+        }
+
+        #pause-button:active {
+            transform: scale(0.95);
+        }
+
+        .control-button {
+            position: absolute;
+            bottom: 40px;
+            width: 90px;
+            height: 90px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 4px solid white;
+            border-radius: 50%;
+            z-index: 60;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3.5em;
+            color: #333;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            user-select: none;
+            -webkit-user-select: none;
+            pointer-events: auto;
+        }
+
+        .control-button:active {
+            transform: scale(0.92);
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+
+        #left-button {
+            left: 20px;
+        }
+
+        #right-button {
+            right: 20px;
+        }
+
+        /* Hide mobile buttons on laptop/desktop */
+        @media (min-width: 1025px) {
+            .control-button {
+                display: none !important;
+            }
+        }
+
+        /* --- Start Screen --- */
+        /* --- Premium Start Screen Redesign --- */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            z-index: 150;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        #start-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(1.1);
+        }
+
+        /* Animated Scanlines */
+        #start-screen::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .game-title-container {
+            position: relative;
+            text-align: center;
+            z-index: 5;
+            perspective: 1000px;
+            margin-bottom: 60px;
+        }
+
+        .main-title {
+            font-size: clamp(3rem, 10vw, 6rem);
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #fff;
+            margin: 0;
+            position: relative;
+            letter-spacing: clamp(4px, 1.5vw, 12px);
+            transform: rotateX(20deg);
+            background: linear-gradient(to bottom, #fff 0%, #a29bfe 50%, #6c5ce7 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 20px rgba(108, 92, 231, 0.6));
+            animation: titlePulse 2.5s infinite alternate ease-in-out;
+        }
+
+        @keyframes titlePulse {
+            from {
+                filter: drop-shadow(0 0 10px rgba(108, 92, 231, 0.4));
+                transform: rotateX(20deg) scale(1);
+            }
+
+            to {
+                filter: drop-shadow(0 0 30px rgba(162, 155, 254, 0.8));
+                transform: rotateX(20deg) scale(1.02);
+            }
+        }
+
+        .sub-title {
+            font-size: clamp(0.7rem, 2.5vw, 1.4rem);
+            color: #55efc4;
+            margin-top: 10px;
+            letter-spacing: clamp(4px, 1.5vw, 8px);
+            text-transform: uppercase;
+            font-weight: bold;
+            opacity: 0.9;
+            text-shadow: 0 0 10px rgba(85, 239, 196, 0.5);
+        }
+
+        /* --- New Speed Effects Overlay --- */
+        #speed-lines-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 40;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #nitro-vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 45;
+            box-shadow: inset 0 0 200px rgba(255, 0, 0, 0);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .nitro-active #nitro-vignette {
+            opacity: 1;
+            box-shadow: inset 0 0 150px rgba(255, 0, 0, 0.6);
+            animation: nitroPulse 0.5s infinite alternate ease-in-out;
+        }
+
+        .nitro-active #speed-lines-canvas {
+            opacity: 1;
+        }
+
+        @keyframes nitroPulse {
+            from {
+                box-shadow: inset 0 0 100px rgba(255, 0, 0, 0.4);
+            }
+
+            to {
+                box-shadow: inset 0 0 200px rgba(255, 0, 0, 0.8);
+            }
+        }
+
+        #start-game-button,
+        #maps-button {
+            position: relative;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.05);
+            border: 4px solid #fff;
+            color: #fff;
+            padding: 20px 0;
+            /* Vertical padding only, let width handle horizontal */
+            font-size: clamp(0.9rem, 3vw, 1.3rem);
+            font-family: 'Press Start 2P', cursive;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            /* Hard arcade edges */
+            width: 300px;
+            /* Fixed width for consistency */
+            max-width: 85%;
+            margin: 10px 0;
+        }
+
+        #start-game-button::before,
+        #maps-button::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: 0.5s;
+        }
+
+        #start-game-button:hover,
+        #maps-button:hover {
+            background: #fff;
+            color: #000;
+            box-shadow: 0 0 40px rgba(255, 255, 255, 0.6);
+            transform: translateY(-5px);
+        }
+
+        #start-game-button:hover::before,
+        #maps-button:hover::before {
+            left: 100%;
+        }
+
+        #start-game-button:active,
+        #maps-button:active {
+            transform: translateY(2px);
+        }
+
+        .controls-hint {
+            position: relative;
+            z-index: 5;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 9px;
+            margin-top: 30px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .controls-hint span {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading-screen">
+        <div id="loading-text">Loading Game...</div>
+        <div id="loading-progress">0%</div>
+    </div>
+
+    <div id="modal-backdrop" class="modal-backdrop"></div>
+
+    <div id="start-screen" class="hidden">
+        <div class="game-title-container">
+            <h1 class="main-title">NEON RUSH</h1>
+            <div class="sub-title">Hyper-Arcade Racing</div>
+        </div>
+
+        <button id="start-game-button">START RACE</button>
+        <button id="maps-button">MAPS</button>
+
+        <div class="controls-hint">
+            <span>◀ ▶ STEER</span>
+            <span>SPACE PAUSE</span>
+        </div>
+    </div>
+
+    <div id="maps-modal" class="modal">
+        <div class="modal-title">SELECT MAP</div>
+        <div class="map-selection-grid">
+            <!-- Normal City -->
+            <div class="map-tile active" data-map="city">
+                <div class="map-preview city-preview"></div>
+                <div class="map-info">
+                    <span class="map-name">CENTRAL CITY</span>
+                    <span class="map-desc">Urban streets</span>
+                </div>
+            </div>
+            <!-- Cyber City -->
+            <div class="map-tile" data-map="cybercity">
+                <div class="map-preview cyber-preview"></div>
+                <div class="map-info">
+                    <span class="map-name">CYBER PUNK</span>
+                    <span class="map-desc">Neon & rain</span>
+                </div>
+            </div>
+            <!-- Desert -->
+            <div class="map-tile" data-map="desert">
+                <div class="map-preview desert-preview"></div>
+                <div class="map-info">
+                    <span class="map-name">SAND DUNES</span>
+                    <span class="map-desc">Dust & Heat</span>
+                </div>
+            </div>
+            <!-- Snow -->
+            <div class="map-tile" data-map="snow">
+                <div class="map-preview snow-preview"></div>
+                <div class="map-info">
+                    <span class="map-name">FROST PEAK</span>
+                    <span class="map-desc">Ice & Snow</span>
+                </div>
+            </div>
+        </div>
+        <button id="close-maps" class="modal-button">BACK</button>
+    </div>
+
+    <div id="container"></div>
+
+    <canvas id="speed-lines-canvas"></canvas>
+    <div id="nitro-vignette"></div>
+
+    <div id="countdown">3</div>
+
+    <div id="ui-container" style="display: none;">
+        <div id="score">Score: 0</div>
+    </div>
+
+    <div id="game-over">
+        <div class="game-over-card">
+            <h1 class="game-over-title">GAME OVER</h1>
+            <div id="final-score-container">Final Score: 0</div>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
+                <button id="restart-button">RESTART</button>
+                <button id="home-button">HOME</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="settings-button">
+        <svg viewBox="0 0 24 24">
+            <path
+                d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.13,5.91,7.62,6.29L5.23,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.72,8.87 C2.61,9.08,2.66,9.34,2.84,9.48l2.03,1.58C4.82,11.36,4.8,11.68,4.8,12c0,0.32,0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
+        </svg>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <h2>SETTINGS</h2>
+
+        <div class="setting-row">
+            <span class="setting-label">Volume</span>
+            <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="0.5">
+        </div>
+
+        <div class="setting-row" style="margin-top: 5px;">
+            <span class="setting-label">Camera View</span>
+            <div class="camera-options">
+                <div class="camera-tile active" data-mode="normal" id="cam-normal">
+                    <div class="camera-preview">
+                        <img src="./img/BEHIND.png" alt="Behind View">
+                    </div>
+                    <span>BEHIND</span>
+                </div>
+                <div class="camera-tile" data-mode="driver" id="cam-driver">
+                    <div class="camera-preview">
+                        <img src="./img/DRIVER.png" alt="Driver View">
+                    </div>
+                    <span>DRIVER</span>
+                </div>
+                <div class="camera-tile" data-mode="top" id="cam-top">
+                    <div class="camera-preview">
+                        <img src="./img/TOP.png" alt="Top View">
+                    </div>
+                    <span>TOP</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="setting-row" id="steering-mode-row" style="margin-top: 5px;">
+            <span class="setting-label">Steering Mode</span>
+            <div class="control-options">
+                <div class="control-tile active" data-mode="buttons" id="ctrl-buttons">
+                    <span>BUTTONS</span>
+                </div>
+                <div class="control-tile" data-mode="swipe" id="ctrl-swipe">
+                    <span>SWIPE</span>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button id="close-settings" class="modal-button" style="flex: 2;">BACK</button>
+            <button id="home-button-settings" class="modal-button"
+                style="flex: 1; background: #74b9ff; font-size: 0.7em; box-shadow: 0 8px 0px #0984e3;">HOME</button>
+        </div>
+    </div>
+
+    <div id="left-button" class="control-button">◀</div>
+    <div id="right-button" class="control-button">▶</div>
+
+    <script type="module" src="./src/Game.js"></script>
+</body>
+
+</html>

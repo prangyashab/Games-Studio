@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Car Scene - Mobile Controls</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #a0d7e6;
+            font-family: 'Press Start 2P', cursive, sans-serif;
+            overscroll-behavior: none;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #loading-screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            z-index: 100;
+            transition: opacity 0.5s ease-out;
+            gap: 15px;
+        }
+
+        #loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #loading-text {
+            font-size: 1em;
+        }
+
+        #loading-progress {
+            font-size: 0.8em;
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            text-shadow: 1px 1px 3px black;
+            z-index: 50;
+            font-size: 1.5em;
+            pointer-events: none;
+        }
+
+        #score {
+            margin-bottom: 5px;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff4444;
+            font-size: 4em;
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 2px 2px 5px black;
+            display: none;
+            z-index: 101;
+            pointer-events: auto;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        #restart-button {
+            background-color: #21c60ffc;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.4em;
+            cursor: pointer;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        #restart-button:hover {
+            background-color: #0056b3;
+        }
+
+        #countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 8em;
+            font-weight: bold;
+            text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.8);
+            z-index: 200;
+            display: none;
+            pointer-events: none;
+        }
+
+        #settings-button {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #ffffff, #dff9fb);
+            border: 4px solid #2d3436;
+            border-radius: 50%;
+            z-index: 60;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.2em;
+            cursor: pointer;
+            box-shadow: 0 6px 0px rgba(0, 0, 0, 0.2);
+            user-select: none;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #settings-button:hover {
+            background-color: #f0f0f0;
+            transform: scale(1.1);
+        }
+
+        /* Modal Styles */
+
+        /* Updated Modal Styles - Gaming Cartoonistic Look */
+
+        /* Updated Modal Styles - Professional Game Theme */
+
+        /* Updated Modal Styles - Clean Cartoon Game Theme */
+
+        /* Updated Modal Styles - Game Theme Cartoon Look */
+
+        #settings-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 360px;
+            background: #74b9ff;
+            /* Sky Blue - Matching Sky */
+            color: #2d3436;
+            padding: 30px;
+            border-radius: 25px;
+            border: 6px solid #2d3436;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            gap: 25px;
+            box-shadow: 12px 12px 0px rgba(0, 0, 0, 0.2);
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        #settings-modal h2 {
+            margin-top: -10px;
+            text-align: center;
+            color: #fff;
+            font-size: 1.3em;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            -webkit-text-stroke: 4px #2d3436;
+            paint-order: stroke fill;
+        }
+
+        .setting-row {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: rgba(255, 255, 255, 0.4);
+            /* Transparent White */
+            padding: 15px;
+            border-radius: 18px;
+            border: 4px solid #2d3436;
+        }
+
+        .setting-label {
+            font-size: 0.65em;
+            color: #2d3436;
+            text-transform: uppercase;
+            font-weight: 900;
+        }
+
+        /* Cartoon Volume Slider */
+
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 18px;
+            cursor: pointer;
+            background: #2d3436;
+            border-radius: 9px;
+            border: 2px solid #2d3436;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 32px;
+            width: 32px;
+            border-radius: 50%;
+            background: #55efc4;
+            /* Grass Green - Matching Game */
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -9px;
+            border: 5px solid #2d3436;
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Cartoon Camera View Tiles */
+
+        .camera-options {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .camera-tile {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .camera-tile:hover {
+            transform: scale(1.05);
+        }
+
+        .camera-preview {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: #fff;
+            border: 4px solid #2d3436;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
+        }
+
+        .camera-tile.active .camera-preview {
+            border-color: #55efc4;
+            /* Active Highlight Green */
+            transform: translateY(-4px);
+            box-shadow: 0px 8px 0px #00b894;
+        }
+
+        .camera-tile img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .camera-tile:hover img,
+        .camera-tile.active img {
+            opacity: 1.0;
+        }
+
+        .camera-tile span {
+            margin-top: 12px;
+            font-size: 0.5em;
+            color: #2d3436;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .camera-tile.active span {
+            color: #00b894;
+        }
+
+        /* Chunky Graphic Button */
+
+        #close-settings {
+            margin-top: 10px;
+            padding: 18px;
+            background: #fff;
+            color: #2d3436;
+            border: 5px solid #2d3436;
+            border-radius: 18px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-family: 'Press Start 2P', cursive;
+            text-transform: uppercase;
+            font-weight: 900;
+            box-shadow: 0 8px 0px #2d3436;
+            transition: all 0.1s;
+        }
+
+        #close-settings:hover {
+            transform: translateY(2px);
+            box-shadow: 0 6px 0px #2d3436;
+            background: #f1f2f6;
+        }
+
+        #close-settings:active {
+            transform: translateY(8px);
+            box-shadow: 0 0px 0px #2d3436;
+        }
+
+        /* Mobile Adjustments for Settings */
+
+        @media (max-width: 450px) {
+            #settings-modal {
+                width: 80%;
+                padding: 15px;
+                gap: 12px;
+                border: 4px solid #2d3436;
+                border-radius: 20px;
+            }
+
+            #settings-modal h2 {
+                font-size: 1em;
+                margin-bottom: 5px;
+            }
+
+            .setting-row {
+                padding: 10px;
+                gap: 10px;
+                border-width: 3px;
+                border-radius: 12px;
+            }
+
+            .camera-options {
+                gap: 8px;
+            }
+
+            .camera-tile span {
+                font-size: 0.4em;
+                margin-top: 8px;
+            }
+
+            #close-settings {
+                padding: 14px;
+                font-size: 0.7em;
+                border-width: 4px;
+            }
+        }
+
+        #pause-button:active {
+            transform: scale(0.95);
+        }
+
+        .control-button {
+            position: absolute;
+            bottom: 40px;
+            width: 90px;
+            height: 90px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 4px solid white;
+            border-radius: 50%;
+            z-index: 60;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3.5em;
+            color: #333;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            user-select: none;
+            -webkit-user-select: none;
+            pointer-events: auto;
+        }
+
+        .control-button:active {
+            transform: scale(0.92);
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+
+        #left-button {
+            left: 20px;
+        }
+
+        #right-button {
+            right: 20px;
+        }
+    </style>
+  <script type="module" crossorigin src="/assets/index-Bh68yDT1.js"></script>
+</head>
+
+<body>
+    <div id="loading-screen">
+        <div id="loading-text">Loading Game...</div>
+        <div id="loading-progress">0%</div>
+    </div>
+    <div id="container"></div>
+
+    <div id="countdown">3</div>
+
+    <div id="ui-container">
+        <div id="score">Score: 0</div>
+    </div>
+    <div id="game-over">
+        GAME OVER!
+        <button id="restart-button">Restart</button>
+    </div>
+
+    <div id="settings-button">⚙️</div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal">
+        <h2>SETTINGS</h2>
+
+        <div class="setting-row">
+            <span class="setting-label">Volume</span>
+            <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="0.5">
+        </div>
+
+        <div class="setting-row" style="margin-top: 5px;">
+            <span class="setting-label">Camera View</span>
+            <div class="camera-options">
+                <div class="camera-tile active" data-mode="normal" id="cam-normal">
+                    <div class="camera-preview">
+                        <img src="/assets/BEHIND-Bby79yl4.png" alt="Behind View">
+                    </div>
+                    <span>BEHIND</span>
+                </div>
+                <div class="camera-tile" data-mode="driver" id="cam-driver">
+                    <div class="camera-preview">
+                        <img src="/assets/DRIVER-D3uK_9Xp.png" alt="Driver View">
+                    </div>
+                    <span>DRIVER</span>
+                </div>
+                <div class="camera-tile" data-mode="top" id="cam-top">
+                    <div class="camera-preview">
+                        <img src="/assets/TOP-CDga7MZm.png" alt="Top View">
+                    </div>
+                    <span>TOP</span>
+                </div>
+            </div>
+        </div>
+
+        <button id="close-settings">RESUME GAME</button>
+    </div>
+
+    <div id="left-button" class="control-button">◀</div>
+    <div id="right-button" class="control-button">▶</div>
+
+</body>
+
+</html>

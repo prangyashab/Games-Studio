@@ -1,0 +1,424 @@
+import * as THREE from 'three';
+
+export class SceneManager {
+    constructor(canvasId, roadLength) {
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        this.roadLength = roadLength;
+
+        // Settings
+        this.scene.background = new THREE.Color(0xa0d7e6);
+        this.scene.fog = new THREE.Fog(0xa0d7e6, 150, 600);
+
+        // Renderer Config
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.5;
+
+        const container = document.getElementById(canvasId);
+        if (container) {
+            container.innerHTML = '';
+            container.appendChild(this.renderer.domElement);
+        }
+
+        this.initLights();
+        this.initSky();
+        this.initHDRI();
+
+        this.currentTimePhase = 'morning';
+        this.nightIntensity = 0;
+
+        // Speed Lines (Airflow Effect)
+        this.speedLines = [];
+        this.createSpeedLines();
+
+        try {
+            this.updateTimeOfDay(0);
+        } catch (e) {
+            console.warn('Initial TimeOfDay update failed:', e);
+        }
+
+        window.addEventListener('resize', () => this.onWindowResize(), false);
+    }
+
+    initLights() {
+        // Soft sky/ground ambient lighting - 1.0 intensity
+        // Ground color 0x888888 ensures shadowed sides of buildings/cars aren't pitch black
+        // Brightened ground color to 0xaaaaaa to kill the pitch-black shadows
+        this.hemiLight = new THREE.HemisphereLight(0xffffff, 0xaaaaaa, 1.0);
+        this.scene.add(this.hemiLight);
+
+        // Main "Sun" Light - Directional
+        this.sun = new THREE.DirectionalLight(0xffffff, 2.8);
+        this.sun.position.set(20, 100, 20);
+        this.sun.castShadow = true;
+
+        // Tightened Shadow Camera to remove jitter/shimmering
+        this.sun.shadow.mapSize.width = 2048; // Reverting to 2048 for high-quality player shadows
+        this.sun.shadow.mapSize.height = 2048;
+        this.sun.shadow.camera.near = 100;
+        this.sun.shadow.camera.far = 1500;
+        this.sun.shadow.camera.left = -50;
+        this.sun.shadow.camera.right = 50;
+        this.sun.shadow.camera.top = 60;
+        this.sun.shadow.camera.bottom = -60;
+        this.sun.shadow.bias = -0.0005; // Slightly deeper bias to prevent acne at better resolution
+        this.sun.shadow.normalBias = 0.05;
+        this.sun.shadow.radius = 4; // Softer edges hide jitter effectively
+
+        this.scene.add(this.sun);
+        this.scene.add(this.sun.target);
+    }
+
+    initHDRI() {
+        // HDRI environment reflections are REMOVED to keep materials (road/cars) looking matte and professional.
+    }
+
+    initSky() {
+        // Large Sky Sphere (Moved much further: Radius 1500)
+        const skyGeo = new THREE.SphereGeometry(1500, 32, 15);
+        this.skyMat = new THREE.MeshBasicMaterial({
+            side: THREE.BackSide,
+            vertexColors: true,
+            fog: false
+        });
+
+        const colors = [];
+        for (let i = 0; i < skyGeo.attributes.position.count; i++) {
+            colors.push(1, 1, 1);
+        }
+        skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+        this.sky = new THREE.Mesh(skyGeo, this.skyMat);
+        this.scene.add(this.sky);
+
+        // Sun & Moon System (Moved way back to Z=+900 to stay behind buildings)
+        this.celestialGroup = new THREE.Group();
+        this.celestialGroup.position.z = 900;
+        this.scene.add(this.celestialGroup);
+
+        // Sun (Larger and more dominant)
+        const sunGeo = new THREE.SphereGeometry(45, 32, 32);
+        this.sunMeshMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
+        this.sunMesh = new THREE.Mesh(sunGeo, this.sunMeshMat);
+        this.sunMesh.position.set(0, 1000, 0); // Position at top for Z-axis rotation sweep
+        this.celestialGroup.add(this.sunMesh);
+
+        // Sun Glow (High-intensity bloom effect)
+        const canvas = document.createElement('canvas');
+        canvas.width = 128; canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 1)'); // Hot core
+        gradient.addColorStop(0.1, 'rgba(255, 255, 220, 0.9)');
+        gradient.addColorStop(0.4, 'rgba(255, 230, 150, 0.4)');
+        gradient.addColorStop(1, 'rgba(255, 200, 50, 0)'); // Soft edge
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 128, 128);
+
+        const glowTex = new THREE.CanvasTexture(canvas);
+        glowTex.needsUpdate = true;
+        const glowMat = new THREE.SpriteMaterial({
+            map: glowTex,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        this.sunGlow = new THREE.Sprite(glowMat);
+        this.sunGlow.scale.set(400, 400, 1);
+        this.sunMesh.add(this.sunGlow);
+
+        // Moon (Larger and glowing)
+        const moonGeo = new THREE.SphereGeometry(25, 32, 32);
+        this.moonMeshMat = new THREE.MeshBasicMaterial({ color: 0xecf0f1, fog: false });
+        this.moonMesh = new THREE.Mesh(moonGeo, this.moonMeshMat);
+        this.moonMesh.position.set(0, -1000, 0); // Opposite to sun
+        this.celestialGroup.add(this.moonMesh);
+
+        // Moon Glow
+        const moonGlowMat = new THREE.SpriteMaterial({
+            map: glowTex,
+            color: 0x82ccdd,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        this.moonGlow = new THREE.Sprite(moonGlowMat);
+        this.moonGlow.scale.set(200, 200, 1);
+        this.moonMesh.add(this.moonGlow);
+
+        // Stars (Transparent for transitions)
+        this.stars = new THREE.Group();
+        this.scene.add(this.stars);
+        const starMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            fog: false,
+            transparent: true,
+            opacity: 0
+        });
+        const starGeo = new THREE.SphereGeometry(1, 4, 4);
+        for (let i = 0; i < 500; i++) {
+            const star = new THREE.Mesh(starGeo, starMat);
+            const r = 1400;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            star.position.set(
+                r * Math.sin(phi) * Math.cos(theta),
+                r * Math.sin(phi) * Math.sin(theta),
+                r * Math.cos(phi)
+            );
+            this.stars.add(star);
+        }
+        this.stars.visible = false;
+
+        // Shooting Star
+        const shootingStarGeo = new THREE.BoxGeometry(0.5, 0.5, 30);
+        this.shootingStarMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, fog: false });
+        this.shootingStar = new THREE.Mesh(shootingStarGeo, this.shootingStarMat);
+        this.scene.add(this.shootingStar);
+        this.shootingStarActive = false;
+
+        // Clouds (Improved distribution)
+        this.clouds = new THREE.Group();
+        this.scene.add(this.clouds);
+        const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, fog: false });
+
+        for (let i = 0; i < 40; i++) {
+            const cloudGroup = new THREE.Group();
+            const numParts = 2 + Math.floor(Math.random() * 3);
+            for (let j = 0; j < numParts; j++) {
+                const cloudPart = new THREE.Mesh(
+                    new THREE.BoxGeometry(15 + Math.random() * 15, 4, 10 + Math.random() * 10),
+                    cloudMat.clone()
+                );
+                cloudPart.position.set(j * 8, Math.random() * 2, Math.random() * 4);
+                cloudGroup.add(cloudPart);
+            }
+            cloudGroup.position.set(
+                (Math.random() - 0.5) * 1200,
+                120 + Math.random() * 60,
+                (Math.random() - 0.5) * 1200
+            );
+            this.clouds.add(cloudGroup);
+        }
+    }
+
+    createSpeedLines() {
+        this.speedLines = [];
+    }
+
+    updateSpeedLineEffect(speedMultiplier, isBoosted) {
+        // Dynamic FOV Zoom Effect
+        const targetFOV = isBoosted ? 95 : 75;
+        this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFOV, 0.1);
+        this.camera.updateProjectionMatrix();
+
+        // CAMERA SHAKE when boosted
+        if (isBoosted) {
+            const shake = 0.04;
+            this.camera.position.x += (Math.random() - 0.5) * shake;
+            this.camera.position.y += (Math.random() - 0.5) * shake;
+        }
+    }
+
+    updateTimeOfDay(score) {
+        // Faster cycle: 15 points per transition, 20 points for night
+        const cycle = 80;
+        const normalizedScore = score % cycle;
+
+        let targetPhase, nextPhase, lerpFactor;
+
+        if (normalizedScore < 15) {
+            // 0-15: Morning to Afternoon
+            targetPhase = 'morning'; nextPhase = 'afternoon';
+            lerpFactor = normalizedScore / 15;
+        } else if (normalizedScore < 30) {
+            // 15-30: Afternoon to Evening
+            targetPhase = 'afternoon'; nextPhase = 'evening';
+            lerpFactor = (normalizedScore - 15) / 15;
+        } else if (normalizedScore < 45) {
+            // 30-45: Evening to Night
+            targetPhase = 'evening'; nextPhase = 'night';
+            lerpFactor = (normalizedScore - 30) / 15;
+        } else if (normalizedScore < 65) {
+            // 45-65: FULL NIGHT (Stay dark for 20 points)
+            targetPhase = 'night'; nextPhase = 'night';
+            lerpFactor = 0;
+        } else {
+            // 65-80: Night to Morning
+            targetPhase = 'night'; nextPhase = 'morning';
+            lerpFactor = (normalizedScore - 65) / 15;
+        }
+
+        const getPhaseSettings = (phase) => {
+            switch (phase) {
+                case 'afternoon': return {
+                    skyTop: 0x00b4d8, skyBottom: 0x90e0ef,
+                    sunI: 3.8, sunC: 0xfff3b0, hemiI: 2.2, rot: 0, glow: 1.2 // Top center
+                };
+                case 'evening': return {
+                    skyTop: 0x6a0572, skyBottom: 0xff7e5f,
+                    sunI: 3.5, sunC: 0xfb8500, hemiI: 1.8, rot: Math.PI / 2, glow: 1.5 // Right
+                };
+                case 'night': return {
+                    skyTop: 0x010105, skyBottom: 0x000000,
+                    sunI: 0.8, sunC: 0x82ccdd, hemiI: 0.8, rot: Math.PI, glow: 0.0 // Moon at Top
+                };
+                default: return { // morning
+                    skyTop: 0x3a86ff, skyBottom: 0xcaf0f8,
+                    sunI: 3.5, sunC: 0xffcc33, hemiI: 2.5, rot: -Math.PI / 2, glow: 1.8 // Left
+                };
+            }
+        };
+
+        const current = getPhaseSettings(targetPhase);
+        const next = getPhaseSettings(nextPhase);
+
+        if (!current || !next) return;
+
+        const clampedLerp = THREE.MathUtils.clamp(lerpFactor, 0, 1);
+
+        // Interpolate colors
+        const topColor = new THREE.Color(current.skyTop).lerp(new THREE.Color(next.skyTop), clampedLerp);
+        const bottomColor = new THREE.Color(current.skyBottom).lerp(new THREE.Color(next.skyBottom), clampedLerp);
+        const sunColor = new THREE.Color(current.sunC).lerp(new THREE.Color(next.sunC), clampedLerp);
+        const sunIntensity = THREE.MathUtils.lerp(current.sunI, next.sunI, clampedLerp);
+        const hemiIntensity = THREE.MathUtils.lerp(current.hemiI, next.hemiI, clampedLerp);
+        const celestialRotation = THREE.MathUtils.lerp(current.rot, next.rot, clampedLerp);
+        const glowOpacity = THREE.MathUtils.lerp(current.glow, next.glow, clampedLerp);
+
+        // Update Vertex Colors for Gradient Effect
+        if (this.sky) {
+            const pos = this.sky.geometry.attributes.position;
+            const colors = this.sky.geometry.attributes.color;
+            for (let i = 0; i < pos.count; i++) {
+                const y = pos.getY(i);
+                // Adjusted for the new 1500 radius (-1500 to 1500)
+                const nY = THREE.MathUtils.smoothstep((y + 1500) / 3000, 0, 1);
+                const mixed = new THREE.Color().copy(bottomColor).lerp(topColor, nY);
+                colors.setXYZ(i, mixed.r, mixed.g, mixed.b);
+            }
+            colors.needsUpdate = true;
+        }
+
+        if (this.scene.fog) {
+            this.scene.fog.color.copy(bottomColor);
+        }
+
+        if (this.sun) {
+            this.sun.intensity = sunIntensity;
+            this.sun.color.copy(sunColor);
+
+            // Sync Directional Light position with visual sun
+            if (this.sunMesh && this.celestialGroup) {
+                this.celestialGroup.updateMatrixWorld(true);
+                const worldPos = new THREE.Vector3();
+                this.sunMesh.getWorldPosition(worldPos);
+                this.sun.position.copy(worldPos);
+
+                // Safety check for sun target
+                if (this.sun.target) {
+                    this.sun.target.position.set(0, 0, 0);
+                    if (!this.sun.target.parent) this.scene.add(this.sun.target);
+                    this.sun.target.updateMatrixWorld();
+                }
+            }
+        }
+        if (this.hemiLight) {
+            this.hemiLight.intensity = hemiIntensity;
+        }
+
+        // Update Sun/Moon mesh colors
+        if (this.sunMeshMat) this.sunMeshMat.color.copy(sunColor);
+        if (this.sunGlow) this.sunGlow.material.color.copy(sunColor);
+        if (this.moonMeshMat) {
+            const moonBase = new THREE.Color(0xecf0f1);
+            this.moonMeshMat.color.copy(moonBase);
+        }
+
+        // Animate Celestial Bodies (Left to Right Sweep)
+        if (this.celestialGroup) {
+            this.celestialGroup.rotation.z = celestialRotation;
+        }
+
+        // Adjust sun glow visibility
+        if (this.sunGlow) {
+            this.sunGlow.material.opacity = glowOpacity;
+        }
+
+        // Star visibility & Night progress (based on 80 point cycle)
+        let nF = 0; // nightFactor
+        if (normalizedScore >= 30 && normalizedScore < 45) nF = (normalizedScore - 30) / 15;
+        else if (normalizedScore >= 45 && normalizedScore < 65) nF = 1;
+        else if (normalizedScore >= 65 && normalizedScore < 80) nF = 1 - (normalizedScore - 65) / 15;
+
+        this.nightIntensity = nF;
+
+        if (this.stars) {
+            this.stars.visible = normalizedScore > 30;
+            this.stars.children.forEach(s => {
+                s.material.opacity = nF;
+            });
+        }
+
+        // Keep clouds visible and colored by sky
+        if (this.clouds) {
+            const cloudColor = new THREE.Color(0xffffff).lerp(bottomColor, 0.4);
+            this.clouds.children.forEach(group => {
+                group.children.forEach(c => {
+                    if (c.material) c.material.color.copy(cloudColor);
+                });
+            });
+        }
+    }
+
+    update(deltaTime) {
+        // Slowly move clouds
+        if (this.clouds) {
+            this.clouds.children.forEach(group => {
+                group.position.z -= deltaTime * 5;
+                if (group.position.z < -600) group.position.z = 600;
+            });
+        }
+
+        // Shooting Star Logic
+        if (this.stars && this.stars.visible) {
+            if (!this.shootingStarActive && Math.random() < 0.005) {
+                this.shootingStarActive = true;
+                this.shootingStar.position.set(
+                    (Math.random() - 0.5) * 800,
+                    400 + Math.random() * 200,
+                    900
+                );
+                this.shootingStar.rotation.z = Math.random() * Math.PI;
+                this.shootingStarMat.opacity = 1;
+            }
+
+            if (this.shootingStarActive) {
+                this.shootingStar.position.x += deltaTime * 500;
+                this.shootingStar.position.y -= deltaTime * 300;
+                this.shootingStarMat.opacity -= deltaTime * 1.5;
+
+                if (this.shootingStarMat.opacity <= 0) {
+                    this.shootingStarActive = false;
+                }
+            }
+        } else {
+            this.shootingStarMat.opacity = 0;
+            this.shootingStarActive = false;
+        }
+    }
+
+    onWindowResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    render() {
+        this.renderer.render(this.scene, this.camera);
+    }
+}
