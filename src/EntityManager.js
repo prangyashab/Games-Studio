@@ -379,7 +379,7 @@ export class EntityManager {
 
         // Only spawn initial if they don't exist
         if (this.points.length === 0) {
-            for (let i = 0; i < 15; i++) {
+            for (let i = 0; i < 8; i++) { // Reduced count to 8
                 const p = new THREE.Mesh(coinGeo, coinMat);
                 p.rotation.x = Math.PI / 2;
                 this.resetPoint(p, true);
@@ -790,9 +790,9 @@ export class EntityManager {
         if (initial) {
             point.position.z = (Math.random() * this.roadLength) - (this.roadLength * 0.4);
         } else {
-            // Recycle just ahead of the visible road end to keep stream constant
-            // roadLength is 200. Recycle at -100. Spawn at +100 to +150.
-            point.position.z = this.roadLength * 0.6 + Math.random() * 30;
+            // Recycle further ahead and spread them out significantly
+            // Was * 0.6 + 30. Now * 0.8 + 150 to create more spacing.
+            point.position.z = this.roadLength * 0.8 + Math.random() * 150;
         }
         point.visible = true;
     }
@@ -814,8 +814,8 @@ export class EntityManager {
         boost.visible = true;
     }
 
-    update(deltaTime, scrollSpeed, enemySpeed, input, scoreCallback, gameOverCallback, boostCallback) {
-        const dist = scrollSpeed; // distance to move scenery
+    update(deltaTime, scrollSpeed, enemySpeed, input, scoreCallback, gameOverCallback, boostCallback, isBoosted = false) {
+        const dist = scrollSpeed; // distance to move scenery (already scaled in Game.js)
 
         // Update Snow
         if (this.currentMapType === 'snow') {
@@ -929,7 +929,7 @@ export class EntityManager {
         }
 
         // Collisions
-        this.checkCollisions(scoreCallback, gameOverCallback, boostCallback);
+        this.checkCollisions(scoreCallback, gameOverCallback, boostCallback, isBoosted);
     }
 
     moveCollection(items, dist, respawnGap) {
@@ -958,12 +958,13 @@ export class EntityManager {
 
 
     setNightFactor(factor) {
-        let headlightIntensity = factor * 12; // Brighter headlights
+        // Dynamic intensity for normal maps (0 during day, 15 at night)
+        let headlightIntensity = factor * 15;
         let windowIntensity = 0.2 + factor * 2.5;
 
-        // Force headlights on for cybercity map (always dark)
+        // Force headlights ALWAYS ON for cybercity map
         if (this.currentMapType === 'cybercity') {
-            headlightIntensity = 15; // Max brightness
+            headlightIntensity = 15; // Max brightness constantly
             windowIntensity = 3.0;
         }
 
@@ -992,8 +993,12 @@ export class EntityManager {
         });
     }
 
-    checkCollisions(scoreCallback, gameOverCallback, boostCallback) {
+    checkCollisions(scoreCallback, gameOverCallback, boostCallback, isBoosted = false) {
         if (!this.carModel) return;
+
+        this.playerBox.setFromObject(this.carModel);
+        // Need to shrink the box slightly for better feel (so we don't crash on edges)
+        this.playerBox.expandByScalar(-0.3);
 
         // Points
         this.points.forEach(p => {
@@ -1020,7 +1025,10 @@ export class EntityManager {
             this.enemyBox.setFromObject(e);
             const pBox = this.playerBox.clone().expandByScalar(-0.2); // Be slightly forgiving
             if (pBox.intersectsBox(this.enemyBox)) {
-                gameOverCallback();
+                // If boosted, we are INVINCIBLE! Pass through.
+                if (!isBoosted) {
+                    gameOverCallback();
+                }
             }
         });
     }

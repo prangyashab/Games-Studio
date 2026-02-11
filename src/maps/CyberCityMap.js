@@ -12,11 +12,11 @@ export class CyberCityMap {
     createLevel(context) {
         // --- Wet Asphalt Road ---
         const roadMat = new THREE.MeshStandardMaterial({
-            color: 0x333333, // Lighter grey for visibility
-            roughness: 0.2,
-            metalness: 0.8,
-            emissive: 0x111111, // Faint glow
-            emissiveIntensity: 0.2
+            color: 0x222222, // Slightly darker
+            roughness: 0.9, // Rougher surface for better headlight visibility (diffuse)
+            metalness: 0.1, // Less metallic to prevent light scattering
+            emissive: 0x000000, // No glow on road itself to contrast lights
+            emissiveIntensity: 0
         });
         const road = new THREE.Mesh(
             new THREE.PlaneGeometry(this.roadWidth, this.roadLength * 1.5),

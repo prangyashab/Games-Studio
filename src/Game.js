@@ -271,7 +271,7 @@ class Game {
 
     restart() {
         this.isGameOver = false;
-        this.isPaused = true;
+        this.isPaused = true; // Wait for countdown
         this.isCountdownActive = false;
         this.score = 0;
         this.uiManager.updateScore(0);
@@ -279,10 +279,11 @@ class Game {
         this.inputManager.setGameOver(false);
         this.entityManager.reset();
 
-        // Reset speeds
-        this.baseScrollSpeed = 0.5;
-        this.enemyBaseSpeed = 0.6;
+        // Reset speeds (Updated to match higher base speeds)
+        this.baseScrollSpeed = 0.8;
+        this.enemyBaseSpeed = 0.9;
         this.speedMultiplier = 1;
+
         if (this.boostTimeout) clearTimeout(this.boostTimeout);
         this.boostTimeout = null;
 
@@ -301,9 +302,9 @@ class Game {
         this.inputManager.setGameOver(false);
         this.entityManager.reset();
 
-        // Reset speeds
-        this.baseScrollSpeed = 0.5;
-        this.enemyBaseSpeed = 0.6;
+        // Reset speeds (Updated to match higher base speeds)
+        this.baseScrollSpeed = 0.8;
+        this.enemyBaseSpeed = 0.9;
         this.speedMultiplier = 1;
         if (this.boostTimeout) clearTimeout(this.boostTimeout);
         this.boostTimeout = null;
@@ -384,7 +385,8 @@ class Game {
                 },
                 () => {
                     this.activateBoost();
-                }
+                },
+                isBoosted // Pass boost status for invincibility
             );
         }
 
