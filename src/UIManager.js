@@ -334,6 +334,13 @@ export class UIManager {
         }
     }
 
+    onCloseMapSelector(callback) {
+        if (this.closeMapSelector) {
+            this.closeMapSelector.addEventListener('click', callback);
+        }
+    }
+
+
     initSpeedLines() {
         this.speedLines = [];
         for (let i = 0; i < 40; i++) {

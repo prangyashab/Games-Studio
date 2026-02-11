@@ -62,9 +62,7 @@ class Game {
 
         // Maps Modal Listeners
         this.uiManager.onMapsClick(() => this.openMaps());
-        if (this.uiManager.closeMaps) {
-            this.uiManager.closeMaps.addEventListener('click', () => this.closeMaps());
-        }
+        this.uiManager.onCloseMapSelector(() => this.closeMaps());
         this.uiManager.onMapSelect((mapType, isClick) => {
             this.sceneManager.setMapType(mapType);
             this.entityManager.setMap(mapType);

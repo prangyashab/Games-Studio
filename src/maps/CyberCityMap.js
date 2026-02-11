@@ -52,8 +52,10 @@ export class CyberCityMap {
             metalness: 0.5
         });
 
-        // Emissive edges for sidewalks
-        const edgeGeo = new THREE.PlaneGeometry(0.5, this.roadLength * 1.5);
+
+        // Emissive edges for sidewalks - EXTENDED LENGTH
+        const extendedLength = this.roadLength * 10; // Much longer for continuous effect
+        const edgeGeo = new THREE.PlaneGeometry(0.5, extendedLength);
         const edgeMat = new THREE.MeshBasicMaterial({ color: 0x00ffff }); // Cyan strips
 
         // Left Sidewalk
@@ -68,7 +70,8 @@ export class CyberCityMap {
         edgeL.rotation.x = -Math.PI / 2;
         edgeL.position.set(-(this.roadWidth / 2), 0.03, 0); // Inner edge
         this.scene.add(edgeL);
-        context.roadLines.push(edgeL); // Cleanup track
+        if (!context.roadLines) context.roadLines = [];
+        context.roadLines.push(edgeL);
 
         // Right Sidewalk
         const swR = new THREE.Mesh(sidewalkGeo, sidewalkMat);
@@ -83,6 +86,22 @@ export class CyberCityMap {
         edgeR.position.set((this.roadWidth / 2), 0.03, 0);
         this.scene.add(edgeR);
         context.roadLines.push(edgeR);
+
+        // --- CENTER DASHED LINE ---
+        const dashLength = 8;
+        const gapLength = 4;
+        const dashWidth = 0.3;
+        const dashMat = new THREE.MeshBasicMaterial({ color: 0xffff00 }); // Yellow center line
+
+        for (let z = -extendedLength / 2; z < extendedLength / 2; z += (dashLength + gapLength)) {
+            const dashGeo = new THREE.PlaneGeometry(dashWidth, dashLength);
+            const dash = new THREE.Mesh(dashGeo, dashMat);
+            dash.rotation.x = -Math.PI / 2;
+            dash.position.set(0, 0.04, z); // Center of road
+            this.scene.add(dash);
+            context.roadLines.push(dash);
+        }
+
 
 
         // --- Digital Rain / Particles ---
@@ -99,6 +118,21 @@ export class CyberCityMap {
         const endZ = this.roadLength;
         for (let z = startZ; z < endZ; z += this.buildingSpacing) {
             this.spawnCyberSceneryAt(z, context);
+        }
+
+        // --- AUTO-ENABLE HEADLIGHTS FOR CYBER PUNK ---
+        // Turn on player car headlights
+        if (context.carModel && context.carModel.userData.headlights) {
+            context.carModel.userData.headlights.forEach(hl => hl.intensity = 15);
+        }
+
+        // Turn on enemy car headlights
+        if (context.enemyCars) {
+            context.enemyCars.forEach(car => {
+                if (car.userData.headlights) {
+                    car.userData.headlights.forEach(hl => hl.intensity = 15);
+                }
+            });
         }
     }
 
