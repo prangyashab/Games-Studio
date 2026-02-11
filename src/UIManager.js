@@ -9,13 +9,13 @@ export class UIManager {
         // Settings UI
         this.settingsButton = document.getElementById('settings-button');
         this.settingsModal = document.getElementById('settings-modal');
-        this.mapsModal = document.getElementById('maps-modal');
+        this.mapSelectorOverlay = document.getElementById('map-selector-overlay'); // New Overlay
         this.closeSettings = document.getElementById('close-settings');
-        this.closeMaps = document.getElementById('close-maps');
+        this.closeMapSelector = document.getElementById('close-map-selector'); // New Close Button
         this.volumeSlider = document.getElementById('volume-slider');
         this.cameraTiles = document.querySelectorAll('.camera-tile');
         this.controlTiles = document.querySelectorAll('.control-tile');
-        this.mapTiles = document.querySelectorAll('.map-tile');
+        this.mapCards = document.querySelectorAll('.map-card'); // New Cards
         this.countdownElement = document.getElementById('countdown');
         this.leftButton = document.getElementById('left-button');
         this.rightButton = document.getElementById('right-button');
@@ -25,7 +25,9 @@ export class UIManager {
         this.mapsButton = document.getElementById('maps-button');
         this.homeButton = document.getElementById('home-button');
         this.homeButtonSettings = document.getElementById('home-button-settings');
+        this.selectedMapDisplay = document.getElementById('selected-map-display');
         this.modalBackdrop = document.getElementById('modal-backdrop');
+        this.mapCarousel = document.querySelector('.map-carousel');
 
         this.controlMode = 'buttons'; // Track steering mode to hide/show buttons
         this.score = 0;
@@ -43,6 +45,12 @@ export class UIManager {
         this.score = newScore;
         if (this.scoreElement) {
             this.scoreElement.textContent = `Score: ${this.score}`;
+        }
+    }
+
+    updateSelectedMapText(mapName) {
+        if (this.selectedMapDisplay) {
+            this.selectedMapDisplay.textContent = `MAP: ${mapName.toUpperCase()}`;
         }
     }
 
@@ -139,11 +147,17 @@ export class UIManager {
     }
 
     toggleMapsModal(show) {
-        if (this.mapsModal) {
-            this.mapsModal.style.display = show ? 'flex' : 'none';
-        }
-        if (this.modalBackdrop) {
-            this.modalBackdrop.style.display = show ? 'block' : 'none';
+        if (this.mapSelectorOverlay) {
+            if (show) {
+                this.mapSelectorOverlay.classList.remove('hidden');
+                this.mapSelectorOverlay.style.display = 'flex';
+                // Hide Start Screen content if needed, but overlay covers it.
+            } else {
+                this.mapSelectorOverlay.classList.add('hidden');
+                setTimeout(() => {
+                    this.mapSelectorOverlay.style.display = 'none';
+                }, 500);
+            }
         }
         this.updateMobileControlsVisibility(show);
     }
@@ -196,13 +210,47 @@ export class UIManager {
     }
 
     onMapSelect(callback) {
-        if (this.mapTiles) {
-            this.mapTiles.forEach(tile => {
-                tile.addEventListener('click', () => {
-                    this.mapTiles.forEach(t => t.classList.remove('active'));
-                    tile.classList.add('active');
-                    callback(tile.dataset.map);
+        if (this.mapCards) {
+            this.mapCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    this.mapCards.forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    callback(card.dataset.map, true); // true = click (close menu)
                 });
+            });
+        }
+
+        // Auto-select center card on scroll
+        if (this.mapCarousel) {
+            let scrollTimer = null;
+            this.mapCarousel.addEventListener('scroll', () => {
+                if (scrollTimer) clearTimeout(scrollTimer);
+
+                scrollTimer = setTimeout(() => {
+                    const carouselRect = this.mapCarousel.getBoundingClientRect();
+                    const carouselCenter = carouselRect.left + carouselRect.width / 2;
+
+                    let minDistance = Infinity;
+                    let closestCard = null;
+
+                    this.mapCards.forEach(card => {
+                        const cardRect = card.getBoundingClientRect();
+                        const cardCenter = cardRect.left + cardRect.width / 2;
+                        const dist = Math.abs(carouselCenter - cardCenter);
+
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            closestCard = card;
+                        }
+                    });
+
+                    if (closestCard && !closestCard.classList.contains('active')) {
+                        this.mapCards.forEach(c => c.classList.remove('active'));
+                        closestCard.classList.add('active');
+                        callback(closestCard.dataset.map, false); // false = scroll (keep menu open)
+                    }
+                }, 10);
             });
         }
     }

@@ -35,6 +35,8 @@ export class SceneManager {
         this.speedLines = [];
         this.createSpeedLines();
 
+        this.mapType = 'city';
+
         try {
             this.updateTimeOfDay(0);
         } catch (e) {
@@ -210,6 +212,19 @@ export class SceneManager {
         this.speedLines = [];
     }
 
+    setMapType(type) {
+        this.mapType = type;
+        // Reset fog if needed
+        if (type === 'snow') {
+            this.scene.fog = new THREE.Fog(0xddeeff, 100, 500); // Dense white/blue fog
+        } else if (type === 'desert') {
+            this.scene.fog = new THREE.Fog(0xe6c288, 100, 700); // Yellow/Sand fog, slightly further
+        } else {
+            this.scene.fog = new THREE.Fog(0xa0d7e6, 150, 600);
+        }
+        this.updateTimeOfDay(0);
+    }
+
     updateSpeedLineEffect(speedMultiplier, isBoosted) {
         // Dynamic FOV Zoom Effect
         const targetFOV = isBoosted ? 95 : 75;
@@ -254,6 +269,65 @@ export class SceneManager {
         }
 
         const getPhaseSettings = (phase) => {
+            if (this.mapType === 'snow') {
+                switch (phase) {
+                    case 'afternoon': return {
+                        skyTop: 0x8899aa, skyBottom: 0xddeeff, // Overcast snow day
+                        sunI: 1.5, sunC: 0xffffee, hemiI: 1.5, rot: 0, glow: 0.8
+                    };
+                    case 'evening': return {
+                        skyTop: 0x2c3e50, skyBottom: 0xbdc3c7,
+                        sunI: 1.2, sunC: 0xffaa88, hemiI: 1.2, rot: Math.PI / 2, glow: 1.0
+                    };
+                    case 'night': return {
+                        skyTop: 0x050510, skyBottom: 0x111122,
+                        sunI: 0.5, sunC: 0xaaccff, hemiI: 0.6, rot: Math.PI, glow: 0.0
+                    };
+                    default: return { // morning
+                        skyTop: 0x778899, skyBottom: 0xcceff0,
+                        sunI: 1.5, sunC: 0xffeedd, hemiI: 1.5, rot: -Math.PI / 2, glow: 1.0
+                    };
+                }
+            } else if (this.mapType === 'desert') {
+                switch (phase) {
+                    case 'afternoon': return {
+                        skyTop: 0x4aa3df, skyBottom: 0xffeebb, // Bright blue to hot yellow
+                        sunI: 2.5, sunC: 0xffffcc, hemiI: 1.8, rot: 0, glow: 1.5
+                    };
+                    case 'evening': return {
+                        skyTop: 0x8e44ad, skyBottom: 0xe67e22, // Purple to orange
+                        sunI: 2.0, sunC: 0xff6b6b, hemiI: 1.5, rot: Math.PI / 2, glow: 1.8
+                    };
+                    case 'night': return {
+                        skyTop: 0x000000, skyBottom: 0x1a1a2e, // Deep dark desert night
+                        sunI: 0.8, sunC: 0xccccff, hemiI: 0.8, rot: Math.PI, glow: 0.0
+                    };
+                    default: return { // morning
+                        skyTop: 0x3498db, skyBottom: 0xf1c40f, // Blue to gold
+                        sunI: 2.0, sunC: 0xfffacd, hemiI: 1.6, rot: -Math.PI / 2, glow: 1.2
+                    };
+                }
+            } else if (this.mapType === 'cybercity') {
+                switch (phase) {
+                    case 'afternoon': return {
+                        skyTop: 0x2b0055, skyBottom: 0xff00ff, // Deep Purple to Neon Pink
+                        sunI: 0.8, sunC: 0x00ffff, hemiI: 1.0, rot: 0, glow: 0.5
+                    };
+                    case 'evening': return {
+                        skyTop: 0x12002f, skyBottom: 0xff00aa,
+                        sunI: 0.6, sunC: 0xff00ff, hemiI: 0.8, rot: Math.PI / 2, glow: 0.8
+                    };
+                    case 'night': return {
+                        skyTop: 0x000000, skyBottom: 0x0a0a2a, // Pure Black to Dark Blue
+                        sunI: 0.2, sunC: 0x000044, hemiI: 0.4, rot: Math.PI, glow: 0.0 // Very dark, let emissive materials shine
+                    };
+                    default: return { // morning
+                        skyTop: 0x001133, skyBottom: 0x00d4ff, // Dark Blue to Cyan
+                        sunI: 1.0, sunC: 0x00ffff, hemiI: 1.2, rot: -Math.PI / 2, glow: 0.6
+                    };
+                }
+            }
+
             switch (phase) {
                 case 'afternoon': return {
                     skyTop: 0x00b4d8, skyBottom: 0x90e0ef,
@@ -264,8 +338,8 @@ export class SceneManager {
                     sunI: 3.5, sunC: 0xfb8500, hemiI: 1.8, rot: Math.PI / 2, glow: 1.5 // Right
                 };
                 case 'night': return {
-                    skyTop: 0x010105, skyBottom: 0x000000,
-                    sunI: 0.8, sunC: 0x82ccdd, hemiI: 0.8, rot: Math.PI, glow: 0.0 // Moon at Top
+                    skyTop: 0x000033, skyBottom: 0x111144, // Brighter night sky
+                    sunI: 1.0, sunC: 0xaaccff, hemiI: 1.2, rot: Math.PI, glow: 0.1 // Moon at Top - clearer visibility
                 };
                 default: return { // morning
                     skyTop: 0x3a86ff, skyBottom: 0xcaf0f8,

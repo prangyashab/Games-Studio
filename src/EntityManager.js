@@ -30,6 +30,8 @@ export class EntityManager {
         this.boosts = [];
         this.pedestrians = []; // New pedestrian list
         this.footpaths = []; // New footpath list
+        this.extras = []; // Extra map-specific meshes to clear
+        this.snowSystem = null; // Particle system for snow
 
         // Constants / Config
         this.carBaseY = 0;
@@ -40,7 +42,6 @@ export class EntityManager {
 
         // State
         this.playerBox = new THREE.Box3();
-        this.enemyBox = new THREE.Box3();
         this.enemyBox = new THREE.Box3();
         this.pointBox = new THREE.Box3();
         this.boostBox = new THREE.Box3();
@@ -134,15 +135,38 @@ export class EntityManager {
                 node.castShadow = true;
                 node.receiveShadow = true;
 
-                // Set Player Car to Black
-                // Clone material so we don't mess up the original loader cache if shared (though unlikely here)
+                // Clone material
                 const newMat = node.material.clone();
-                const isBody = (node.name.toLowerCase().includes('body') ||
-                    (newMat.metalness > 0.4 && newMat.roughness < 0.6));
+                const name = node.name.toLowerCase();
+
+                // Exclude obvious non-body parts
+                const isWheel = name.includes('wheel') || name.includes('tire') || name.includes('rim') || name.includes('brake');
+                const isGlass = name.includes('glass') || name.includes('window') || name.includes('windshield') || newMat.opacity < 0.9;
+                const isInterior = name.includes('interior') || name.includes('seat') || name.includes('dashboard') || name.includes('steering');
+                const isLight = name.includes('light') || name.includes('lamp');
+
+                // Determine if it is likely the body
+                // The main body usually has the largest surface area or specific material properties
+                // Heuristic: If it's not excluded, and it's metallic/shiny, OR explicitly named body/paint
+                let isBody = (name.includes('body') || name.includes('paint') || name.includes('chassis') || name.includes('main'));
+
+                // Fallback: If not named, guess by material type (shiny paint)
+                if (!isBody && !isWheel && !isGlass && !isInterior && !isLight) {
+                    if (newMat.metalness > 0.4 && newMat.roughness < 0.6) {
+                        isBody = true;
+                    }
+                }
 
                 if (isBody) {
-                    newMat.color.set(0x333333); // Metallic Charcoal
+                    if (this.mapType === 'snow') {
+                        // Force Red
+                        newMat.color.set(0xff0000);
+                        newMat.emissive.set(0x000000); // Clear any emissive
+                    } else {
+                        newMat.color.set(0x222222); // Dark Charcoal
+                    }
                 }
+
                 node.material = newMat;
             }
         });
@@ -300,14 +324,30 @@ export class EntityManager {
         this.buildings.forEach(b => this.scene.remove(b));
         this.footpaths.forEach(f => this.scene.remove(f));
         this.roadLines.forEach(l => this.scene.remove(l));
+        this.pedestrians.forEach(p => this.scene.remove(p));
+        this.kerbs.forEach(k => this.scene.remove(k));
+
         if (this.roadMesh) this.scene.remove(this.roadMesh);
         if (this.groundMesh) this.scene.remove(this.groundMesh);
         if (this.skylineBillboards) this.skylineBillboards.forEach(b => this.scene.remove(b));
+        if (this.extras) this.extras.forEach(e => this.scene.remove(e));
+
+        // Reset spawn collision hooks
+        delete this.spawnBuildingPairAt;
 
         this.buildings = [];
         this.footpaths = [];
         this.roadLines = [];
+        this.pedestrians = [];
+        this.kerbs = [];
         this.skylineBillboards = [];
+        this.extras = [];
+
+        // Clear Snow System
+        if (this.snowSystem) {
+            this.scene.remove(this.snowSystem);
+            this.snowSystem = null;
+        }
 
         // Generate map
         switch (this.currentMapType) {
@@ -316,6 +356,9 @@ export class EntityManager {
             case 'cybercity': this.cyberCityMap.createLevel(this); break;
             default: this.cityMap.createLevel(this); break;
         }
+
+        // Apply car color based on map type (force update)
+        this.updateCarColor();
 
         // --- COMMON ENTITIES (Shared across all maps) ---
 
@@ -444,8 +487,9 @@ export class EntityManager {
         group.add(body);
 
         // Roof Cap
+        const capColor = (this.currentMapType === 'snow') ? 0xffffff : 0x1e272e;
         const capGeo = new THREE.BoxGeometry(w + 0.5, 1, d + 0.5);
-        const capMat = new THREE.MeshStandardMaterial({ color: 0x1e272e });
+        const capMat = new THREE.MeshStandardMaterial({ color: capColor });
         const cap = new THREE.Mesh(capGeo, capMat);
         cap.position.y = h / 2 + 0.5;
         group.add(cap);
@@ -554,13 +598,72 @@ export class EntityManager {
         // Legacy
     }
 
+    updateCarColor() {
+        if (!this.carModel) return;
+
+        this.carModel.traverse((node) => {
+            if (node.isMesh) {
+                // Heuristic: Check name OR material properties
+                const name = node.name.toLowerCase();
+                const mat = node.material;
+
+                // Exclude obvious non-body parts
+                const isWheel = name.includes('wheel') || name.includes('tire') || name.includes('rim') || name.includes('brake');
+                const isGlass = name.includes('glass') || name.includes('window') || name.includes('windshield') || mat.opacity < 0.9;
+                const isInterior = name.includes('interior') || name.includes('seat') || name.includes('dashboard') || name.includes('steering');
+                const isLight = name.includes('light') || name.includes('lamp');
+
+                // Determine if it is likely the body
+                let isBody = (name.includes('body') || name.includes('paint') || name.includes('chassis') || name.includes('main'));
+
+                if (!isBody && !isWheel && !isGlass && !isInterior && !isLight) {
+                    // Force guess if it looks like car paint (shiny, not too rough)
+                    if (mat.metalness > 0.4 && mat.roughness < 0.6) {
+                        isBody = true;
+                    }
+                }
+
+                if (isBody) {
+                    if (this.currentMapType === 'snow') {
+                        node.material.color.set(0xff2a2a); // Lighter Red
+                        node.material.metalness = 0.6; // Reduce metalness for brighter look
+                        node.material.roughness = 0.3; // Reduce gloss slightly
+                        // Keep subtle emissive for night visibility but lighter
+                        if (node.material.emissive) {
+                            node.material.emissive.set(0x550000);
+                            node.material.emissiveIntensity = 0.4;
+                        }
+                    } else if (this.currentMapType === 'cybercity') {
+                        node.material.color.set(0x00ffff); // Electric Cyan
+                        node.material.metalness = 0.9;
+                        node.material.roughness = 0.1;
+                        if (node.material.emissive) {
+                            node.material.emissive.set(0x00aaaa); // Strong Cyan Glow
+                            node.material.emissiveIntensity = 0.8;
+                        }
+                    } else {
+                        // Default / Desert / City - Standard Black Car
+                        node.material.color.set(0x111111); // Deep Black
+                        node.material.metalness = 0.6;
+                        node.material.roughness = 0.4;
+                        if (node.material.emissive) {
+                            node.material.emissive.set(0x000000); // No glow
+                            node.material.emissiveIntensity = 0.0;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     createTree() {
         const group = new THREE.Group();
         // Merge tree geometries for performance
         const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 2, 8);
         trunkGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 1, 0));
 
-        const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27 });
+        const leafColor = (this.currentMapType === 'snow') ? 0xffffff : 0x2d5a27;
+        const leafMat = new THREE.MeshStandardMaterial({ color: leafColor });
         const leafGeos = [];
         for (let i = 0; i < 3; i++) {
             const lGeo = new THREE.ConeGeometry(1.5 - i * 0.3, 2, 8);
@@ -711,6 +814,13 @@ export class EntityManager {
     update(deltaTime, scrollSpeed, enemySpeed, input, scoreCallback, gameOverCallback, boostCallback) {
         const dist = scrollSpeed; // distance to move scenery
 
+        // Update Snow
+        if (this.currentMapType === 'snow') {
+            this.updateSnow(deltaTime);
+        } else if (this.currentMapType === 'desert') {
+            this.desertMap.update(deltaTime);
+        }
+
         // Move Scenery
         this.moveCollection(this.roadLines, dist, 8);
         this.moveCollection(this.pedestrians, dist, 0);
@@ -778,10 +888,36 @@ export class EntityManager {
         // Player Movement
         if (this.carModel) {
             const moveSpeed = 0.15;
-            const limit = this.roadWidth / 2 - 1;
+            let limit = this.roadWidth / 2 - 1;
+
+            // Stricter limit for Desert map to prevent visual clipping with sand
+            if (this.currentMapType === 'desert') {
+                limit = this.roadWidth / 2 - 1.5;
+            }
             // +X is Left, -X is Right (per user fix)
             if (input.moveLeft && this.carModel.position.x < limit) this.carModel.position.x += moveSpeed;
             if (input.moveRight && this.carModel.position.x > -limit) this.carModel.position.x -= moveSpeed;
+
+            // Skid Effect: Rotate car slightly based on lateral position relative to limit
+            // Normalized position (-1 to 1)
+            const lateralPos = this.carModel.position.x / limit;
+            const skidThreshold = 0.8;
+
+            if (Math.abs(lateralPos) > skidThreshold) {
+                // Skidding!
+                const skidAmount = (Math.abs(lateralPos) - skidThreshold) * 2.0; // 0 to ~0.4
+                // Rotate opposite to movement direction or just amplify the turn?
+                // Visual skidding usually means the car is angled slightly differently than its velocity.
+                // Here we just rotate it to loop 'loose'.
+                // If on left edge (limit), car x is positive. Rotate slightly.
+                const skidAngle = -lateralPos * 0.3 * skidAmount;
+                this.carModel.rotation.y = Math.PI + skidAngle;
+
+                // Maybe add some dust? (handled in update loop if we want, or just stick to visual rotation for now)
+            } else {
+                // Return to normal
+                this.carModel.rotation.y = THREE.MathUtils.lerp(this.carModel.rotation.y, Math.PI, 0.1);
+            }
 
             this.playerBox.setFromObject(this.carModel);
         }
@@ -799,6 +935,21 @@ export class EntityManager {
             }
         });
     }
+
+    updateSnow(deltaTime) {
+        if (!this.snowSystem) return;
+
+        const positions = this.snowSystem.geometry.attributes.position.array;
+        for (let i = 1; i < positions.length; i += 3) {
+            // Y position
+            positions[i] -= deltaTime * 10; // Fall speed
+            if (positions[i] < 0) {
+                positions[i] = 100; // Reset to top
+            }
+        }
+        this.snowSystem.geometry.attributes.position.needsUpdate = true;
+    }
+
 
     setNightFactor(factor) {
         const headlightIntensity = factor * 12; // Brighter headlights

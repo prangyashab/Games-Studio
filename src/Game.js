@@ -65,10 +65,16 @@ class Game {
         if (this.uiManager.closeMaps) {
             this.uiManager.closeMaps.addEventListener('click', () => this.closeMaps());
         }
-        this.uiManager.onMapSelect((mapType) => {
+        this.uiManager.onMapSelect((mapType, isClick) => {
+            this.sceneManager.setMapType(mapType);
             this.entityManager.setMap(mapType);
-            this.restart(); // Restart to regenerate the world with the new map
-            this.closeMaps();
+            this.entityManager.createLevel();
+            this.uiManager.updateSelectedMapText(mapType);
+
+            // Only close menu on click, not on scroll
+            if (isClick) {
+                this.closeMaps();
+            }
         });
 
         // Spacebar to pause
