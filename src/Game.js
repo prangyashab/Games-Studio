@@ -15,12 +15,13 @@ class Game {
         this.inputManager = new InputManager();
         this.uiManager = new UIManager();
         this.soundManager = new SoundManager();
+        this.clock = new THREE.Clock(); // For smooth delta time handling
 
         this.isGameOver = false;
         this.isGameOver = false;
         this.score = 0;
-        this.baseScrollSpeed = 0.5; // Constant scroll speed
-        this.enemyBaseSpeed = 0.6; // Starting enemy speed
+        this.baseScrollSpeed = 0.8; // Increased speed (was 0.5)
+        this.enemyBaseSpeed = 0.9; // Increased enemy speed (was 0.6)
         this.speedMultiplier = 1; // Only for player/scroll
         this.boostTimeout = null;
         this.cameraMode = 'normal'; // 'normal', 'driver', 'top'
@@ -350,11 +351,15 @@ class Game {
             // Trigger 3D Exhaust Flames
             this.entityManager.setNitroExhaust(isBoosted);
 
+            // Time scaling for smooth 60fps independent movement
+            const delta = this.clock.getDelta();
+            const timeScale = delta / 0.016; // Normalizes to 60fps base
+
             // Game Loop - Only update if NOT paused and NOT in countdown
             this.entityManager.update(
-                0.016, // Approx delta
-                this.baseScrollSpeed * this.speedMultiplier,
-                this.enemyBaseSpeed,
+                delta, // True delta for animations
+                (this.baseScrollSpeed * this.speedMultiplier) * timeScale, // Scaled Scroll
+                this.enemyBaseSpeed * timeScale, // Scaled Enemy Speed
                 this.inputManager,
                 (points) => {
                     this.score += points;
@@ -362,7 +367,11 @@ class Game {
                     this.soundManager.playCoin();
 
                     if (this.score > 0 && this.score % 25 === 0) {
+                        // Increase Enemy Speed
                         if (this.enemyBaseSpeed < 4.0) this.enemyBaseSpeed += 0.2;
+
+                        // Increase Player/Scroll Speed (The user requested this)
+                        if (this.baseScrollSpeed < 3.0) this.baseScrollSpeed += 0.1;
                     }
                 },
                 () => {

@@ -240,9 +240,15 @@ export class SceneManager {
     }
 
     updateTimeOfDay(score) {
+        // Adjust cycle speed per map
+        let effectiveScore = score;
+        if (this.mapType === 'desert') {
+            effectiveScore = score * 0.5; // 2x Slower cycle for Desert
+        }
+
         // Faster cycle: 15 points per transition, 20 points for night
         const cycle = 80;
-        const normalizedScore = score % cycle;
+        const normalizedScore = effectiveScore % cycle;
 
         let targetPhase, nextPhase, lerpFactor;
 

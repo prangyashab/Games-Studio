@@ -181,18 +181,21 @@ export class EntityManager {
         const headlightColor = 0xffffdf;
         const intensity = 0; // Start off
 
-        const leftHeadlight = new THREE.SpotLight(headlightColor, intensity, 40, Math.PI / 4, 0.5, 1);
-        leftHeadlight.position.set(0.6, 0.5, -2);
+        // Left
+        // Increased angle and distance for better road visibility
+        const leftHeadlight = new THREE.SpotLight(headlightColor, intensity, 100, Math.PI / 3, 0.5, 1);
+        leftHeadlight.position.set(0.6, 0.5, -1.8);
         const leftTarget = new THREE.Object3D();
-        leftTarget.position.set(0.6, 0.5, -20);
+        leftTarget.position.set(0.6, 0.0, -30); // Aim further down the road
         car.add(leftHeadlight);
         car.add(leftTarget);
         leftHeadlight.target = leftTarget;
 
-        const rightHeadlight = new THREE.SpotLight(headlightColor, intensity, 40, Math.PI / 4, 0.5, 1);
-        rightHeadlight.position.set(-0.6, 0.5, -2);
+        // Right
+        const rightHeadlight = new THREE.SpotLight(headlightColor, intensity, 100, Math.PI / 3, 0.5, 1);
+        rightHeadlight.position.set(-0.6, 0.5, -1.8);
         const rightTarget = new THREE.Object3D();
-        rightTarget.position.set(-0.6, 0.5, -20);
+        rightTarget.position.set(-0.6, 0.0, -30); // Aim further down the road
         car.add(rightHeadlight);
         car.add(rightTarget);
         rightHeadlight.target = rightTarget;
@@ -828,8 +831,9 @@ export class EntityManager {
         this.moveCollection(this.footpaths, dist, 0);
 
         // Update Pedestrians
+        const timeScale = deltaTime / 0.016;
         this.pedestrians.forEach(p => {
-            p.position.z += p.userData.dir * p.userData.speed;
+            p.position.z += (p.userData.dir * p.userData.speed) * timeScale;
         });
         this.moveCollection(this.buildings, dist, this.buildingSpacing * 2);
         // this.moveCollection(this.points, dist, 50); // Points handled separately
@@ -838,7 +842,7 @@ export class EntityManager {
         this.points.forEach(p => {
             // Always move points, even if collected (invisible), so they can be recycled
             p.position.z -= dist;
-            if (p.visible) p.rotation.z += 0.1; // Rotate cylinder on its vertical axis
+            if (p.visible) p.rotation.z += 0.1 * timeScale; // Rotate cylinder on its vertical axis
 
             if (p.position.z < -this.sceneryRecycleDistance) {
                 this.resetPoint(p);
@@ -850,8 +854,8 @@ export class EntityManager {
             // Always move boosts, even if collected (invisible)
             b.position.z -= dist;
             if (b.visible) {
-                b.rotation.y += 0.1;
-                b.rotation.x += 0.05;
+                b.rotation.y += 0.1 * timeScale;
+                b.rotation.x += 0.05 * timeScale;
             }
 
             if (b.position.z < -this.sceneryRecycleDistance) {
@@ -887,7 +891,9 @@ export class EntityManager {
 
         // Player Movement
         if (this.carModel) {
-            const moveSpeed = 0.15;
+            // Scale movement by delta time (normalized to 60fps)
+            const timeScale = deltaTime / 0.016;
+            const moveSpeed = 0.15 * timeScale;
             let limit = this.roadWidth / 2 - 1;
 
             // Stricter limit for Desert map to prevent visual clipping with sand
@@ -952,12 +958,21 @@ export class EntityManager {
 
 
     setNightFactor(factor) {
-        const headlightIntensity = factor * 12; // Brighter headlights
-        const windowIntensity = 0.2 + factor * 2.5;
+        let headlightIntensity = factor * 12; // Brighter headlights
+        let windowIntensity = 0.2 + factor * 2.5;
+
+        // Force headlights on for cybercity map (always dark)
+        if (this.currentMapType === 'cybercity') {
+            headlightIntensity = 15; // Max brightness
+            windowIntensity = 3.0;
+        }
 
         // Player Headlights
         if (this.carModel && this.carModel.userData.headlights) {
-            this.carModel.userData.headlights.forEach(hl => hl.intensity = headlightIntensity);
+            this.carModel.userData.headlights.forEach(hl => {
+                hl.intensity = headlightIntensity;
+                // No bulb mesh to update
+            });
         }
 
         // Enemy Headlights

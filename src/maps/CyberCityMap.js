@@ -137,7 +137,7 @@ export class CyberCityMap {
     }
 
     createDigitalRain(context) {
-        const particleCount = 3000;
+        const particleCount = 1500; // Optimized for mobile smoothness
         const geometry = new THREE.BufferGeometry();
         const positions = [];
         const colors = [];
@@ -176,7 +176,7 @@ export class CyberCityMap {
 
     spawnCyberSceneryAt(zPos, entityManager) {
         // Density Check
-        if (Math.random() > 0.05) { // 95% chance
+        if (Math.random() > 0.15) { // 85% chance (Reduced from 95% for mobile)
             this.spawnCyberBuildingPair(zPos, entityManager);
         }
 
