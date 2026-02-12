@@ -12,6 +12,7 @@ export class InputManager {
 
         this.initKeyboard();
         this.initTouch();
+        this.initTilt();
     }
 
     setGameOver(state) {
@@ -28,6 +29,17 @@ export class InputManager {
         this.moveLeft = false;
         this.moveRight = false;
         this.isTouching = false;
+
+        // Request permission for iOS 13+ devices
+        if (mode === 'tilt' && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            DeviceOrientationEvent.requestPermission()
+                .then(response => {
+                    if (response === 'granted') {
+                        // Permission granted
+                    }
+                })
+                .catch(console.error);
+        }
     }
 
     initKeyboard() {
@@ -103,6 +115,28 @@ export class InputManager {
             this.isTouching = false;
             this.moveLeft = false;
             this.moveRight = false;
+        });
+    }
+
+    initTilt() {
+        window.addEventListener('deviceorientation', (e) => {
+            if (this.isGameOver || this.controlMode !== 'tilt') return;
+
+            const tilt = e.gamma; // Left/Right tilt in degrees
+            if (tilt === null) return;
+
+            const threshold = 7; // Sensitivity threshold in degrees
+
+            if (tilt < -threshold) {
+                this.moveLeft = true;
+                this.moveRight = false;
+            } else if (tilt > threshold) {
+                this.moveRight = true;
+                this.moveLeft = false;
+            } else {
+                this.moveLeft = false;
+                this.moveRight = false;
+            }
         });
     }
 }
