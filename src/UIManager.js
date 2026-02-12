@@ -71,6 +71,7 @@ export class UIManager {
         if (this.gameOverElement) {
             this.gameOverElement.style.display = 'none';
         }
+        this.wasGameOverVisible = false; // Reset potential overlap state
         // Restore controls
         if (this.settingsButton) this.settingsButton.style.display = 'flex';
 

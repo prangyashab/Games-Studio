@@ -30,7 +30,7 @@ class Game {
             });
 
             // Hide loading screen
-            const loadingEl = document.getElementById('loading');
+            const loadingEl = document.getElementById('loading-screen');
             if (loadingEl) {
                 loadingEl.style.opacity = '0';
                 setTimeout(() => loadingEl.style.display = 'none', 500);
@@ -40,8 +40,18 @@ class Game {
             this.animate(0);
         } catch (error) {
             console.error("Failed to load game assets:", error);
-            const loadingEl = document.getElementById('loading');
-            if (loadingEl) loadingEl.innerText = "Error loading game assets. Please refresh.";
+            const loadingEl = document.getElementById('loading-text');
+            if (loadingEl) {
+                loadingEl.innerText = "Error: " + error.message;
+                loadingEl.style.color = '#ff4757';
+                loadingEl.style.fontSize = '1rem';
+            }
+            // Ensure loading screen stays visible on error
+            const screen = document.getElementById('loading-screen');
+            if (screen) {
+                screen.classList.remove('hidden');
+                screen.style.opacity = '1';
+            }
         }
     }
 

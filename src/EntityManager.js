@@ -52,6 +52,114 @@ export class EntityManager {
             0xffa500, 0x800080, 0x008000, 0x000080, 0xffc0cb, 0x40E0D0
         ];
         this.lastColorIndex = -1;
+
+        // --- Performance Optimizations: Cache Resources ---
+        this.cacheResources();
+    }
+
+    cacheResources() {
+        // 1. Shared Geometries (Unit sizing for scaling)
+        this.unitBoxGeo = new THREE.BoxGeometry(1, 1, 1);
+        this.unitCylinderGeo = new THREE.CylinderGeometry(1, 1, 1, 8); // Base cylinder
+
+        // 2. Shared Materials for Buildings - STRICT CHARCOAL & GREY (No Blue)
+        const urbanColors = [
+            0x2f3542, // Dark Charcoal
+            0x1e272e, // High Rise Grey
+            0x353b48, // Metallic Grey
+            0x2d3436, // Slate (Neutral)
+            0x3d3d3d, // Matte Grey
+            0x4b4b4b, // Concrete Dark
+            0x1c1c1c, // Obsidian (Near Black)
+            0x57606f  // Gris
+        ];
+        this.buildingMaterials = urbanColors.map(c => new THREE.MeshStandardMaterial({ color: c }));
+
+        this.capMatSnow = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        this.capMatCity = new THREE.MeshStandardMaterial({ color: 0x1e272e });
+
+        // 3. Window Texture (Generated ONCE)
+        this.windowMaterial = this.createWindowMaterial();
+
+        // 4. Skyline Billboard Texture (Generated ONCE)
+        this.skylineTex = this.createSkylineTexture();
+
+        // 5. Boost Sprite Texture (Generated ONCE)
+        this.boostSpriteTex = this.createBoostTexture();
+    }
+
+    createWindowMaterial() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+
+        // Clear with transparent background
+        ctx.clearRect(0, 0, 64, 64);
+
+        // No background fill -> Transparent!
+
+        // Light (Window pane) - REDUCED SIZE to show more building color
+        ctx.fillStyle = '#ffffcc';
+
+        // Smaller windows (20x20 instead of 26x26) -> Larger gaps/frames
+        const winSize = 20;
+        const gap = (64 - (winSize * 2)) / 3; // Calculate even spacing
+
+        const x1 = gap;
+        const x2 = gap * 2 + winSize;
+
+        ctx.fillRect(x1, x1, winSize, winSize);
+        ctx.fillRect(x2, x1, winSize, winSize);
+        ctx.fillRect(x1, x2, winSize, winSize);
+        ctx.fillRect(x2, x2, winSize, winSize);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+
+        // Use transparent material so building color shows through
+        return new THREE.MeshStandardMaterial({
+            map: tex,
+            emissive: 0xffffcc,
+            emissiveMap: tex,
+            emissiveIntensity: 0.6,
+            transparent: true, // Enable transparency
+            side: THREE.FrontSide
+        });
+    }
+
+    createSkylineTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Simple Building Silhouette Gradient
+        const grad = ctx.createLinearGradient(0, 512, 0, 0);
+        grad.addColorStop(0, '#2c3e50');
+        grad.addColorStop(1, '#34495e');
+        ctx.fillStyle = grad;
+        ctx.fillRect(40, 50, 176, 462);
+
+        // Add random windows
+        ctx.fillStyle = '#f1c40f';
+        for (let r = 0; r < 15; r++) {
+            for (let c = 0; c < 4; c++) {
+                if (Math.random() > 0.3) ctx.fillRect(60 + c * 35, 80 + r * 25, 20, 15);
+            }
+        }
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    createBoostTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grad.addColorStop(0, 'rgba(255, 71, 87, 0.8)');
+        grad.addColorStop(1, 'rgba(255, 71, 87, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 64, 64);
+        return new THREE.CanvasTexture(canvas);
     }
 
     getDistinctColor() {
@@ -98,10 +206,14 @@ export class EntityManager {
             }));
 
             p1.then(() => {
-                this.createLevel();
-                if (onProgress) onProgress(1.0); // Complete
-                resolve();
-            });
+                try {
+                    this.createLevel();
+                    if (onProgress) onProgress(1.0); // Complete
+                    resolve();
+                } catch (e) {
+                    reject(e);
+                }
+            }).catch(reject);
         });
     }
 
@@ -423,27 +535,9 @@ export class EntityManager {
     }
 
     spawnSkylineBillboard(zPos) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 256; canvas.height = 512;
-        const ctx = canvas.getContext('2d');
+        if (!this.skylineTex) return;
 
-        // Simple Building Silhouette Gradient
-        const grad = ctx.createLinearGradient(0, 512, 0, 0);
-        grad.addColorStop(0, '#2c3e50');
-        grad.addColorStop(1, '#34495e');
-        ctx.fillStyle = grad;
-        ctx.fillRect(40, 50, 176, 462);
-
-        // Add random windows
-        ctx.fillStyle = '#f1c40f';
-        for (let r = 0; r < 15; r++) {
-            for (let c = 0; c < 4; c++) {
-                if (Math.random() > 0.3) ctx.fillRect(60 + c * 35, 80 + r * 25, 20, 15);
-            }
-        }
-
-        const tex = new THREE.CanvasTexture(canvas);
-        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+        const mat = new THREE.SpriteMaterial({ map: this.skylineTex, transparent: true });
         const sprite = new THREE.Sprite(mat);
 
         const side = Math.random() > 0.5 ? 1 : -1;
@@ -479,108 +573,59 @@ export class EntityManager {
 
         const group = new THREE.Group();
 
-        // Body
-        const curatedColors = [0x2c3e50, 0x34495e, 0x7f8c8d, 0x2d3436, 0x636e72];
-        const color = curatedColors[Math.floor(Math.random() * curatedColors.length)];
-        const bodyGeo = new THREE.BoxGeometry(w, h, d);
-        const bodyMat = new THREE.MeshStandardMaterial({ color });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        // Body - REUSE GEOMETRY & MATERIALS
+        // Use cached material from array
+        // Randomly pick color
+        const bodyMat = this.buildingMaterials[Math.floor(Math.random() * this.buildingMaterials.length)];
+        const body = new THREE.Mesh(this.unitBoxGeo, bodyMat);
+
+        // Logic: Unit box is 1x1x1. Scale it to w, h, d.
+        body.scale.set(w, h, d);
+
         body.castShadow = true;
         body.receiveShadow = true;
         group.add(body);
 
         // Roof Cap
-        const capColor = (this.currentMapType === 'snow') ? 0xffffff : 0x1e272e;
-        const capGeo = new THREE.BoxGeometry(w + 0.5, 1, d + 0.5);
-        const capMat = new THREE.MeshStandardMaterial({ color: capColor });
-        const cap = new THREE.Mesh(capGeo, capMat);
+        const capColorMat = (this.currentMapType === 'snow') ? this.capMatSnow : this.capMatCity;
+        const cap = new THREE.Mesh(this.unitBoxGeo, capColorMat);
+        cap.scale.set(w + 0.5, 1, d + 0.5);
         cap.position.y = h / 2 + 0.5;
         group.add(cap);
 
-        // Windows Optimization: Use one geometry for ALL windows per building
-        const rows = Math.floor(h / 5);
-        const cols = Math.floor(w / 2);
+        // Windows Optimization: Use Texture Tiling instead of Geometry Merging
+        // Create a separate box slightly larger than body for windows
+        if (Math.random() > 0.3 && this.windowMaterial && this.windowMaterial.map) {
+            // Clone texture to allow independent repetition adjustment per building?
+            // Or just update UVs? Updating UVs on shared unitGeo is bad.
+            // Better to clone the material or texture? No, texture is heavy.
+            // Best standard threejs way: Set texture repeat on cloned texture, OR use geometry scaling with UV scaling.
+            // Simplest for performance: Map uses texture repeat.
+            const winMat = this.windowMaterial.clone();
+            // We clone material (lightweight) to set specific texture repeat
+            const tex = winMat.map.clone(); // Clone texture wrapper (lightweight pointer to source image)
+            winMat.map = tex;
+            winMat.emissiveMap = tex;
 
-        const windowGeometries = [];
-        const winPlaneGeo = new THREE.PlaneGeometry(0.6, 0.8);
+            // Adjust repeat based on building size
+            tex.repeat.set(Math.floor(w / 2), Math.floor(h / 4));
+            tex.needsUpdate = true;
 
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                // Front Side
-                const geoFront = winPlaneGeo.clone();
-                geoFront.applyMatrix4(new THREE.Matrix4().makeTranslation(
-                    (c - (cols - 1) / 2) * 1.5,
-                    (r - (rows - 1) / 2) * 4,
-                    d / 2 + 0.05
-                ));
-                windowGeometries.push(geoFront);
+            // Set transparent true
+            winMat.transparent = true;
+            winMat.opacity = 1;
 
-                // Back Side
-                const geoBack = winPlaneGeo.clone();
-                geoBack.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI));
-                geoBack.applyMatrix4(new THREE.Matrix4().makeTranslation(
-                    (c - (cols - 1) / 2) * 1.5,
-                    (r - (rows - 1) / 2) * 4,
-                    -d / 2 - 0.05
-                ));
-                windowGeometries.push(geoBack);
-            }
-        }
-
-        if (windowGeometries.length > 0) {
-            // Since we don't have BufferGeometryUtils.mergeGeometries easily, 
-            // we'll manually merge or just use a small number of groups. 
-            // In Three.js, we can use a simpler approach: create one large mesh 
-            // if we have a merge utility, but since we don't, I'll use a very efficient loop 
-            // or just a single mesh with merged data.
-
-            // Actually, for now, let's use a simpler optimization:
-            // Only add windows if building is close enough or use a simpler texture.
-            // But I will manually merge the vertices/indices for peak performance.
-
-            const mergedGeo = this.mergeSimpleGeometries(windowGeometries);
-            const winMat = new THREE.MeshStandardMaterial({
-                color: 0xffffcc,
-                emissive: 0xffffcc,
-                emissiveIntensity: 1.0
-            });
-            const windowsMesh = new THREE.Mesh(mergedGeo, winMat);
-            group.add(windowsMesh);
+            const winBox = new THREE.Mesh(this.unitBoxGeo, winMat);
+            // Slightly larger than body so it z-fights or sits on top? 
+            // Better: Make it same size but use offset? Or slightly larger.
+            winBox.scale.set(w + 0.1, h * 0.99, d + 0.1);
+            // Add to group
+            group.add(winBox);
         }
 
         // Store info for positioning
         group.userData = { height: h, width: w };
         return group;
-    }
-
-    mergeSimpleGeometries(geos) {
-        // Manual merge of PlaneGeometries to avoid dependencies
-        const combinedVertices = [];
-        const combinedNormals = [];
-        const combinedUvs = [];
-        const combinedIndices = [];
-        let vertexOffset = 0;
-
-        geos.forEach(geo => {
-            const pos = geo.attributes.position.array;
-            const norm = geo.attributes.normal.array;
-            const uv = geo.attributes.uv.array;
-            const idx = geo.index.array;
-
-            for (let i = 0; i < pos.length; i++) combinedVertices.push(pos[i]);
-            for (let i = 0; i < norm.length; i++) combinedNormals.push(norm[i]);
-            for (let i = 0; i < uv.length; i++) combinedUvs.push(uv[i]);
-            for (let i = 0; i < idx.length; i++) combinedIndices.push(idx[i] + vertexOffset);
-
-            vertexOffset += geo.attributes.position.count;
-        });
-
-        const merged = new THREE.BufferGeometry();
-        merged.setAttribute('position', new THREE.Float32BufferAttribute(combinedVertices, 3));
-        merged.setAttribute('normal', new THREE.Float32BufferAttribute(combinedNormals, 3));
-        merged.setAttribute('uv', new THREE.Float32BufferAttribute(combinedUvs, 2));
-        merged.setIndex(combinedIndices);
-        return merged;
     }
 
     spawnTreePairAt(zPos) {
@@ -661,28 +706,27 @@ export class EntityManager {
 
     createTree() {
         const group = new THREE.Group();
-        // Merge tree geometries for performance
-        const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 2, 8);
-        trunkGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 1, 0));
 
+        // Trunk
+        const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 2, 8);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5d3a1a });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.y = 1;
+        trunk.castShadow = true;
+        group.add(trunk);
+
+        // Leaves
         const leafColor = (this.currentMapType === 'snow') ? 0xffffff : 0x2d5a27;
         const leafMat = new THREE.MeshStandardMaterial({ color: leafColor });
-        const leafGeos = [];
+
         for (let i = 0; i < 3; i++) {
             const lGeo = new THREE.ConeGeometry(1.5 - i * 0.3, 2, 8);
-            lGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 2 + i * 1.2, 0));
-            leafGeos.push(lGeo);
+            const leaf = new THREE.Mesh(lGeo, leafMat);
+            leaf.position.y = 2 + i * 1.2;
+            leaf.castShadow = true;
+            group.add(leaf);
         }
 
-        const mergedLeaves = this.mergeSimpleGeometries(leafGeos);
-        const leaves = new THREE.Mesh(mergedLeaves, leafMat);
-        leaves.castShadow = true;
-
-        const trunk = new THREE.Mesh(trunkGeo, new THREE.MeshStandardMaterial({ color: 0x5d3a1a }));
-        trunk.castShadow = true;
-
-        group.add(trunk);
-        group.add(leaves);
         return group;
     }
 
@@ -705,8 +749,7 @@ export class EntityManager {
         const group = new THREE.Group();
         const red = 0xff4757;
 
-        // Main Bottle Body
-        const bodyGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.8, 12);
+        // Use Unit Geo with scaling
         const bodyMat = new THREE.MeshStandardMaterial({
             color: red,
             metalness: 0.9,
@@ -714,49 +757,38 @@ export class EntityManager {
             emissive: red,
             emissiveIntensity: 0.5
         });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
+
+        // Main Bottle Body
+        const body = new THREE.Mesh(this.unitCylinderGeo || new THREE.CylinderGeometry(1, 1, 1), bodyMat);
+        body.scale.set(0.3, 0.8, 0.3); // Scale unit cylinder
         body.castShadow = true;
         group.add(body);
 
         // Bottle Neck
-        const neckGeo = new THREE.CylinderGeometry(0.12, 0.2, 0.2, 12);
-        const neck = new THREE.Mesh(neckGeo, bodyMat);
+        const neck = new THREE.Mesh(this.unitCylinderGeo || new THREE.CylinderGeometry(1, 1, 1), bodyMat);
+        neck.scale.set(0.12, 0.2, 0.12);
         neck.position.y = 0.5;
         group.add(neck);
 
         // Bottle Cap
-        const capGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.1, 12);
         const capMat = new THREE.MeshStandardMaterial({ color: 0x2d3436, metalness: 0.5 });
-        const cap = new THREE.Mesh(capGeo, capMat);
+        const cap = new THREE.Mesh(this.unitCylinderGeo || new THREE.CylinderGeometry(1, 1, 1), capMat);
+        cap.scale.set(0.15, 0.1, 0.15);
         cap.position.y = 0.65;
         group.add(cap);
 
-        // Label Area (Silver strip)
-        const labelGeo = new THREE.CylinderGeometry(0.31, 0.31, 0.3, 12);
-        const labelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.8 });
-        const label = new THREE.Mesh(labelGeo, labelMat);
-        group.add(label);
-
-        // Glowing Aura Sprite (For visibility)
-        const canvas = document.createElement('canvas');
-        canvas.width = 64; canvas.height = 64;
-        const ctx = canvas.getContext('2d');
-        const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-        grad.addColorStop(0, 'rgba(255, 71, 87, 0.8)');
-        grad.addColorStop(1, 'rgba(255, 71, 87, 0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 64, 64);
-
-        const tex = new THREE.CanvasTexture(canvas);
-        const spriteMat = new THREE.SpriteMaterial({
-            map: tex,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-        const sprite = new THREE.Sprite(spriteMat);
-        sprite.scale.set(1.5, 1.5, 1);
-        group.add(sprite);
+        // Glowing Aura Sprite
+        if (this.boostSpriteTex) {
+            const spriteMat = new THREE.SpriteMaterial({
+                map: this.boostSpriteTex,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.scale.set(1.5, 1.5, 1);
+            group.add(sprite);
+        }
 
         return group;
     }

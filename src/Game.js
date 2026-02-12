@@ -35,11 +35,19 @@ class Game {
 
     async init() {
         // Load Assets
-        await this.entityManager.loadAssets((progress) => {
-            this.uiManager.updateLoading(progress);
-        });
-
-        this.uiManager.hideLoading();
+        try {
+            await this.entityManager.loadAssets((progress) => {
+                this.uiManager.updateLoading(progress);
+            });
+            this.uiManager.hideLoading();
+        } catch (error) {
+            console.error("Game Init Error:", error);
+            if (this.uiManager.loadingProgress) {
+                this.uiManager.loadingProgress.textContent = "Error: " + error.message;
+                this.uiManager.loadingProgress.style.color = '#ff4757';
+                this.uiManager.loadingProgress.style.fontSize = '12px';
+            }
+        }
 
         // camera Setup (initial)
         this.sceneManager.camera.position.set(0, 3, -7);
@@ -73,6 +81,12 @@ class Game {
             // Only close menu on click, not on scroll
             if (isClick) {
                 this.closeMaps();
+                // If we were in Game Over state, reset to start screen state essentially
+                if (this.isGameOver) {
+                    this.isGameOver = false;
+                    this.uiManager.hideGameOver();
+                    this.goToMainMenu(); // Go to main menu to restart properly
+                }
             }
         });
 
@@ -132,13 +146,18 @@ class Game {
     closeSettings() {
         this.uiManager.toggleSettingsModal(false);
 
+        if (this.isGameOver) {
+            this.uiManager.showGameOver();
+            return;
+        }
+
         if (!this.hasStarted) {
             // If we haven't started, go back to start screen
             this.uiManager.showStartScreen();
             return;
         }
 
-        if (this.isPaused && !this.isGameOver) {
+        if (this.isPaused) {
             this.startCountdown();
         }
     }
@@ -157,6 +176,10 @@ class Game {
 
     startCountdown() {
         this.stopCountdown(); // Safety first: clear existing
+
+        // Ensure UI is clean
+        this.uiManager.hideGameOver();
+        this.uiManager.toggleSettingsModal(false);
 
         this.isCountdownActive = true;
         this.isPaused = true;
@@ -339,6 +362,9 @@ class Game {
             return;
         }
 
+        const rawDelta = this.clock.getDelta();
+        const delta = Math.min(rawDelta, 0.1);
+
         if (!this.isPaused && !this.isCountdownActive) {
             const isBoosted = this.speedMultiplier > 1;
 
@@ -352,8 +378,6 @@ class Game {
             // Trigger 3D Exhaust Flames
             this.entityManager.setNitroExhaust(isBoosted);
 
-            // Time scaling for smooth 60fps independent movement
-            const delta = this.clock.getDelta();
             const timeScale = delta / 0.016; // Normalizes to 60fps base
 
             // Game Loop - Only update if NOT paused and NOT in countdown
@@ -398,7 +422,7 @@ class Game {
         this.updateCamera();
 
         // Update Scene (Clouds, etc.)
-        this.sceneManager.update(0.016);
+        this.sceneManager.update(delta);
 
         // Update Headlights & emissives based on night progress
         this.entityManager.setNightFactor(this.sceneManager.nightIntensity);
