@@ -11,12 +11,14 @@ export class SceneManager {
         this.scene.background = new THREE.Color(0xa0d7e6);
         this.scene.fog = new THREE.Fog(0xa0d7e6, 150, 600);
 
-        // Renderer Config
+        // Renderer Config - PREMIUM HD SETUP
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Crisp 4K/Retina support (capped at 2x for perf)
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Soft but high quality
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.5;
+        this.renderer.toneMappingExposure = 1.2; // Slightly lowered for richer colors
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace; // Modern color accuracy
 
         const container = document.getElementById(canvasId);
         if (container) {
@@ -59,8 +61,8 @@ export class SceneManager {
         this.sun.castShadow = true;
 
         // Tightened Shadow Camera to remove jitter/shimmering
-        this.sun.shadow.mapSize.width = 2048; // Reverting to 2048 for high-quality player shadows
-        this.sun.shadow.mapSize.height = 2048;
+        this.sun.shadow.mapSize.width = 1024; // Balanced for quality/performance
+        this.sun.shadow.mapSize.height = 1024;
         this.sun.shadow.camera.near = 100;
         this.sun.shadow.camera.far = 1500;
         this.sun.shadow.camera.left = -50;

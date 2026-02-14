@@ -62,16 +62,26 @@ export class EntityManager {
         this.unitBoxGeo = new THREE.BoxGeometry(1, 1, 1);
         this.unitCylinderGeo = new THREE.CylinderGeometry(1, 1, 1, 8); // Base cylinder
 
-        // 2. Shared Materials for Buildings - STRICT CHARCOAL & GREY (No Blue)
         const urbanColors = [
-            0x2f3542, // Dark Charcoal
-            0x1e272e, // High Rise Grey
-            0x353b48, // Metallic Grey
-            0x2d3436, // Slate (Neutral)
-            0x3d3d3d, // Matte Grey
-            0x4b4b4b, // Concrete Dark
-            0x1c1c1c, // Obsidian (Near Black)
-            0x57606f  // Gris
+            // User Requested Medium/Light Greys (From Image)
+            0x7f8c8d, // Medium Slate Grey
+            0x95a5a6, // Cool Concrete Grey
+            0x607d8b, // Blue Grey
+
+            // Dark Greys & Charcoals
+            0x2f3542,
+            0x1e272e,
+            0x2d3436,
+            0x3d3d3d,
+            0x4b4b4b,
+            0x1c1c1c, // Obsidian
+
+            // Dark Navy Blues
+            0x192a56, // Dark Navy
+            0x2c3e50, // Midnight Blue
+            0x1a252f, // Very Dark Blue
+            0x273c75, // Mazarine Blue
+            0x222f3e  // Imperial Black/Blue
         ];
         this.buildingMaterials = urbanColors.map(c => new THREE.MeshStandardMaterial({ color: c }));
 
@@ -98,32 +108,33 @@ export class EntityManager {
 
         // No background fill -> Transparent!
 
-        // Light (Window pane) - REDUCED SIZE to show more building color
-        ctx.fillStyle = '#ffffcc';
+        // Pure White Window Light
+        ctx.fillStyle = '#ffffff';
 
-        // Smaller windows (20x20 instead of 26x26) -> Larger gaps/frames
-        const winSize = 20;
-        const gap = (64 - (winSize * 2)) / 3; // Calculate even spacing
+        // Single Large Window for "Less Winds" look
+        const winW = 24;
+        const winH = 34;
+        const x = (64 - winW) / 2;
+        const y = (64 - winH) / 2;
 
-        const x1 = gap;
-        const x2 = gap * 2 + winSize;
-
-        ctx.fillRect(x1, x1, winSize, winSize);
-        ctx.fillRect(x2, x1, winSize, winSize);
-        ctx.fillRect(x1, x2, winSize, winSize);
-        ctx.fillRect(x2, x2, winSize, winSize);
+        ctx.fillRect(x, y, winW, winH);
 
         const tex = new THREE.CanvasTexture(canvas);
         tex.wrapS = THREE.RepeatWrapping;
         tex.wrapT = THREE.RepeatWrapping;
 
+        // High quality filtering for premium look
+        tex.minFilter = THREE.LinearMipMapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.anisotropy = 16; // Max quality filtering
+
         // Use transparent material so building color shows through
         return new THREE.MeshStandardMaterial({
             map: tex,
-            emissive: 0xffffcc,
+            emissive: 0xffffff, // White Glow
             emissiveMap: tex,
-            emissiveIntensity: 0.6,
-            transparent: true, // Enable transparency
+            emissiveIntensity: 1.0, // Bright white
+            transparent: true,
             side: THREE.FrontSide
         });
     }
@@ -607,8 +618,12 @@ export class EntityManager {
             winMat.map = tex;
             winMat.emissiveMap = tex;
 
-            // Adjust repeat based on building size
-            tex.repeat.set(Math.floor(w / 2), Math.floor(h / 4));
+            // Adjust repeat based on building size - SCALED DOWN for fewer windows
+            // Was w/2, h/4. Now making tiles larger (dividing by larger number means fewer tiles?? No.)
+            // Texture Repeat: Higher number = more repetitions = smaller windows.
+            // Lower number = fewer repetitions = larger windows.
+            // We want FEWER windows. So we want Lower Repeat.
+            tex.repeat.set(Math.max(1, Math.floor(w / 3)), Math.max(1, Math.floor(h / 5)));
             tex.needsUpdate = true;
 
             // Set transparent true

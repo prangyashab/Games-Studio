@@ -125,12 +125,15 @@ export class InputManager {
             const tilt = e.gamma; // Left/Right tilt in degrees
             if (tilt === null) return;
 
-            const threshold = 7; // Sensitivity threshold in degrees
+            // Improved sensitivity (Lower threshold for faster response)
+            const threshold = 5;
 
-            if (tilt < -threshold) {
+            // Inverted Logic as requested ("Tilt Left -> Go Left")
+            // Swap: Positive Gamma = Left, Negative Gamma = Right (Device dependent fix)
+            if (tilt > threshold) {
                 this.moveLeft = true;
                 this.moveRight = false;
-            } else if (tilt > threshold) {
+            } else if (tilt < -threshold) {
                 this.moveRight = true;
                 this.moveLeft = false;
             } else {

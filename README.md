@@ -1,24 +1,24 @@
-# Neon Rush: Hyper-Arcade Racing 🏎️💨
+Neon Rush is a super fast 3D racing game. This game is all about speed, survive longer, and making your own high score. The game looks really clean and runs smooth on laptop and mobile both.
 
-A high-performance 3D arcade racing game built with **Three.js**. Experience "cinema-grade" visual effects, dynamic environment lighting, and ultra-smooth controls across both Laptop and Mobile.
+Features: 
+Crazy Speed Effects: Speed lines, nitro fire, and motion effects that makes the game feel very fast.
+Works on All Devices: UI adjust automatically for mobile, tablet and laptop screens.
+Custom Control & Camera:
+Change camera view (Back view, Driver view, Top view).
+On mobile you can use buttons or swipe to control car.
 
-## 🌟 Features
-- **Dynamic Speed Effects**: 2D/3D hybrid speed lines and nitro exhaust flames.
-- **Responsive UI**: Perfectly centered layouts and adaptive typography for mobile, tablet, and laptop.
-- **Customizable Experience**: 
-  - Multiple Camera Views (Behind, Driver, Top).
-  - Mobile Steering Modes (Buttons or Swipe Gestures).
-- **Atmospheric Environment**: Real-time score-based time-of-day transitions and skyline lighting.
-- **Arcade Mechanics**: Boost pads, coin collection, and increasing difficulty.
+Cool City Environment: City lights and sky changes as your score goes high.
 
-## 🚀 Getting Started
-1. Clone the repository.
-2. Open `index.html` in your browser (preferably through a local server like `serve` or `Live Server`).
-3. Race and survive!
+Arcade Gameplay Stuff:
+Collect coins.
+Boost pads for extra speed.
+Traffic becomes more hard when time pass.
 
-## 🕹️ Controls
-- **Keyboard**: Arrow Keys / WASD to Steer, Space to Pause.
-- **Mobile**: On-screen buttons or Swipe gestures (switchable in Settings ⚙️).
+🚀 How to Play
+Clone this repo.
+Open index.html using live server or any local server.
+Jut start racing and try to survive max time.
 
----
-*Built with ❤️ for High-Speed Gaming.*
+🕹️ Controls
+Laptop: Arrow keys or WASD to move car, Space to pause game.
+Mobile: On screen buttons or swipe controls (you can change in settings ⚙️).
