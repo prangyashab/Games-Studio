@@ -230,8 +230,11 @@ export class SceneManager {
     updateSpeedLineEffect(speedMultiplier, isBoosted) {
         // Dynamic FOV Zoom Effect
         const targetFOV = isBoosted ? 95 : 75;
-        this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFOV, 0.1);
-        this.camera.updateProjectionMatrix();
+
+        if (Math.abs(this.camera.fov - targetFOV) > 0.01) {
+            this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFOV, 0.1);
+            this.camera.updateProjectionMatrix();
+        }
 
         // CAMERA SHAKE when boosted
         if (isBoosted) {
@@ -242,6 +245,19 @@ export class SceneManager {
     }
 
     updateTimeOfDay(score) {
+        if (this._lastScore === score) return;
+        this._lastScore = score;
+
+        // Init temp objects if not exist (lazy init to keep constructor clean)
+        if (!this._c1) {
+            this._c1 = new THREE.Color();
+            this._c2 = new THREE.Color();
+            this._cMixed = new THREE.Color();
+            this._cBottom = new THREE.Color();
+            this._cTop = new THREE.Color();
+            this._cSun = new THREE.Color();
+        }
+
         // Adjust cycle speed per map
         let effectiveScore = score;
         if (this.mapType === 'desert') {
@@ -285,7 +301,7 @@ export class SceneManager {
                     };
                     case 'evening': return {
                         skyTop: 0x2c3e50, skyBottom: 0xbdc3c7,
-                        sunI: 1.2, sunC: 0xffaa88, hemiI: 1.2, rot: Math.PI / 2, glow: 1.0
+                        sunI: 1.2, sunC: 0xffaa88, hemiI: 1.2, rot: Math.PI / 3, glow: 1.0
                     };
                     case 'night': return {
                         skyTop: 0x050510, skyBottom: 0x111122,
@@ -293,7 +309,7 @@ export class SceneManager {
                     };
                     default: return { // morning
                         skyTop: 0x778899, skyBottom: 0xcceff0,
-                        sunI: 1.5, sunC: 0xffeedd, hemiI: 1.5, rot: -Math.PI / 2, glow: 1.0
+                        sunI: 1.5, sunC: 0xffeedd, hemiI: 1.5, rot: -Math.PI / 3, glow: 1.0
                     };
                 }
             } else if (this.mapType === 'desert') {
@@ -304,7 +320,7 @@ export class SceneManager {
                     };
                     case 'evening': return {
                         skyTop: 0x8e44ad, skyBottom: 0xe67e22, // Purple to orange
-                        sunI: 2.0, sunC: 0xff6b6b, hemiI: 1.5, rot: Math.PI / 2, glow: 1.8
+                        sunI: 2.0, sunC: 0xff6b6b, hemiI: 1.5, rot: Math.PI / 3, glow: 1.8
                     };
                     case 'night': return {
                         skyTop: 0x000000, skyBottom: 0x1a1a2e, // Deep dark desert night
@@ -312,7 +328,7 @@ export class SceneManager {
                     };
                     default: return { // morning
                         skyTop: 0x3498db, skyBottom: 0xf1c40f, // Blue to gold
-                        sunI: 2.0, sunC: 0xfffacd, hemiI: 1.6, rot: -Math.PI / 2, glow: 1.2
+                        sunI: 2.0, sunC: 0xfffacd, hemiI: 1.6, rot: -Math.PI / 3, glow: 1.2
                     };
                 }
             } else if (this.mapType === 'cybercity') {
@@ -323,7 +339,7 @@ export class SceneManager {
                     };
                     case 'evening': return {
                         skyTop: 0x12002f, skyBottom: 0xff00aa,
-                        sunI: 0.6, sunC: 0xff00ff, hemiI: 0.8, rot: Math.PI / 2, glow: 0.8
+                        sunI: 0.6, sunC: 0xff00ff, hemiI: 0.8, rot: Math.PI / 3, glow: 0.8
                     };
                     case 'night': return {
                         skyTop: 0x000000, skyBottom: 0x0a0a2a, // Pure Black to Dark Blue
@@ -331,7 +347,7 @@ export class SceneManager {
                     };
                     default: return { // morning
                         skyTop: 0x001133, skyBottom: 0x00d4ff, // Dark Blue to Cyan
-                        sunI: 1.0, sunC: 0x00ffff, hemiI: 1.2, rot: -Math.PI / 2, glow: 0.6
+                        sunI: 1.0, sunC: 0x00ffff, hemiI: 1.2, rot: -Math.PI / 3, glow: 0.6
                     };
                 }
             }
@@ -343,7 +359,7 @@ export class SceneManager {
                 };
                 case 'evening': return {
                     skyTop: 0x6a0572, skyBottom: 0xff7e5f,
-                    sunI: 3.5, sunC: 0xfb8500, hemiI: 1.8, rot: Math.PI / 2, glow: 1.5 // Right
+                    sunI: 3.5, sunC: 0xfb8500, hemiI: 1.8, rot: Math.PI / 3, glow: 1.5 // Right
                 };
                 case 'night': return {
                     skyTop: 0x000033, skyBottom: 0x111144, // Brighter night sky
@@ -351,7 +367,7 @@ export class SceneManager {
                 };
                 default: return { // morning
                     skyTop: 0x3a86ff, skyBottom: 0xcaf0f8,
-                    sunI: 3.5, sunC: 0xffcc33, hemiI: 2.5, rot: -Math.PI / 2, glow: 1.8 // Left
+                    sunI: 3.5, sunC: 0xffcc33, hemiI: 2.5, rot: -Math.PI / 3, glow: 1.8 // Left
                 };
             }
         };
@@ -363,10 +379,19 @@ export class SceneManager {
 
         const clampedLerp = THREE.MathUtils.clamp(lerpFactor, 0, 1);
 
-        // Interpolate colors
-        const topColor = new THREE.Color(current.skyTop).lerp(new THREE.Color(next.skyTop), clampedLerp);
-        const bottomColor = new THREE.Color(current.skyBottom).lerp(new THREE.Color(next.skyBottom), clampedLerp);
-        const sunColor = new THREE.Color(current.sunC).lerp(new THREE.Color(next.sunC), clampedLerp);
+        // Interpolate colors using reused objects
+        this._c1.setHex(current.skyTop);
+        this._c2.setHex(next.skyTop);
+        const topColor = this._cTop.copy(this._c1).lerp(this._c2, clampedLerp); // Store result in _cTop
+
+        this._c1.setHex(current.skyBottom);
+        this._c2.setHex(next.skyBottom);
+        const bottomColor = this._cBottom.copy(this._c1).lerp(this._c2, clampedLerp); // Store result in _cBottom
+
+        this._c1.setHex(current.sunC);
+        this._c2.setHex(next.sunC);
+        const sunColor = this._cSun.copy(this._c1).lerp(this._c2, clampedLerp); // Store in _cSun
+
         const sunIntensity = THREE.MathUtils.lerp(current.sunI, next.sunI, clampedLerp);
         const hemiIntensity = THREE.MathUtils.lerp(current.hemiI, next.hemiI, clampedLerp);
         const celestialRotation = THREE.MathUtils.lerp(current.rot, next.rot, clampedLerp);
@@ -380,8 +405,17 @@ export class SceneManager {
                 const y = pos.getY(i);
                 // Adjusted for the new 1500 radius (-1500 to 1500)
                 const nY = THREE.MathUtils.smoothstep((y + 1500) / 3000, 0, 1);
-                const mixed = new THREE.Color().copy(bottomColor).lerp(topColor, nY);
-                colors.setXYZ(i, mixed.r, mixed.g, mixed.b);
+
+                // Optimized reuse of color object inside loop
+                // this._cMixed.copy(bottomColor).lerp(topColor, nY); 
+                // Using .copy() on shared objects is safe here because we set it immediately
+
+                // Manual lerp for max speed in tight loop
+                const r = bottomColor.r + (topColor.r - bottomColor.r) * nY;
+                const g = bottomColor.g + (topColor.g - bottomColor.g) * nY;
+                const b = bottomColor.b + (topColor.b - bottomColor.b) * nY;
+
+                colors.setXYZ(i, r, g, b);
             }
             colors.needsUpdate = true;
         }
@@ -397,7 +431,7 @@ export class SceneManager {
             // Sync Directional Light position with visual sun
             if (this.sunMesh && this.celestialGroup) {
                 this.celestialGroup.updateMatrixWorld(true);
-                const worldPos = new THREE.Vector3();
+                const worldPos = new THREE.Vector3(); // Vector3 alloc is generally fast, but could reuse if really needed
                 this.sunMesh.getWorldPosition(worldPos);
                 this.sun.position.copy(worldPos);
 
@@ -417,8 +451,8 @@ export class SceneManager {
         if (this.sunMeshMat) this.sunMeshMat.color.copy(sunColor);
         if (this.sunGlow) this.sunGlow.material.color.copy(sunColor);
         if (this.moonMeshMat) {
-            const moonBase = new THREE.Color(0xecf0f1);
-            this.moonMeshMat.color.copy(moonBase);
+            // Constant color, no need to alloc
+            this.moonMeshMat.color.setHex(0xecf0f1);
         }
 
         // Animate Celestial Bodies (Left to Right Sweep)
@@ -448,10 +482,12 @@ export class SceneManager {
 
         // Keep clouds visible and colored by sky
         if (this.clouds) {
-            const cloudColor = new THREE.Color(0xffffff).lerp(bottomColor, 0.4);
+            // this._cMixed reuse
+            this._cMixed.setHex(0xffffff).lerp(bottomColor, 0.4);
+
             this.clouds.children.forEach(group => {
                 group.children.forEach(c => {
-                    if (c.material) c.material.color.copy(cloudColor);
+                    if (c.material) c.material.color.copy(this._cMixed);
                 });
             });
         }

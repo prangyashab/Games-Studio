@@ -363,6 +363,9 @@ export class UIManager {
     }
 
     setNitroEffect(active) {
+        if (this._isNitroActive === active) return;
+        this._isNitroActive = active;
+
         if (active) {
             document.body.classList.add('nitro-active');
         } else {
