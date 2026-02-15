@@ -13,7 +13,7 @@ export class SceneManager {
 
         // Renderer Config - PREMIUM HD SETUP
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Crisp 4K/Retina support (capped at 2x for perf)
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Capped at 1.5x for better mobile performance
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Soft but high quality
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;

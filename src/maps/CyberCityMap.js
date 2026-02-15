@@ -137,7 +137,7 @@ export class CyberCityMap {
     }
 
     createDigitalRain(context) {
-        const particleCount = 1500; // Optimized for mobile smoothness
+        const particleCount = 600; // Optimized for mobile smoothness
         const geometry = new THREE.BufferGeometry();
         const positions = [];
         const colors = [];
