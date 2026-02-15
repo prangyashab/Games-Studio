@@ -20,8 +20,8 @@ class Game {
         this.isGameOver = false;
         this.isGameOver = false;
         this.score = 0;
-        this.baseScrollSpeed = 1.1; // Balanced speed
-        this.enemyBaseSpeed = 1.2; // Balanced enemy speed
+        this.baseScrollSpeed = 1.05; // Fine-tuned speed balance
+        this.enemyBaseSpeed = 1.15;
         this.speedMultiplier = 1; // Only for player/scroll
         this.boostTimeout = null;
         this.cameraMode = 'normal'; // 'normal', 'driver', 'top'
@@ -309,8 +309,8 @@ class Game {
         this.entityManager.reset();
 
         // Reset speeds (Updated to match higher base speeds)
-        this.baseScrollSpeed = 1.1;
-        this.enemyBaseSpeed = 1.2;
+        this.baseScrollSpeed = 1.05;
+        this.enemyBaseSpeed = 1.15;
         this.speedMultiplier = 1;
 
         if (this.boostTimeout) clearTimeout(this.boostTimeout);
@@ -332,8 +332,8 @@ class Game {
         this.entityManager.reset();
 
         // Reset speeds (Updated to match higher base speeds)
-        this.baseScrollSpeed = 1.1;
-        this.enemyBaseSpeed = 1.2;
+        this.baseScrollSpeed = 1.05;
+        this.enemyBaseSpeed = 1.15;
         this.speedMultiplier = 1;
         if (this.boostTimeout) clearTimeout(this.boostTimeout);
         this.boostTimeout = null;

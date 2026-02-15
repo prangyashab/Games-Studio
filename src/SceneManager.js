@@ -11,10 +11,9 @@ export class SceneManager {
         this.scene.background = new THREE.Color(0xa0d7e6);
         this.scene.fog = new THREE.Fog(0xa0d7e6, 150, 600);
 
-        // Renderer Config - BALANCED PERFORMANCE
+        // Renderer Config - PREMIUM HD QUALITY RESTORED
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        // Cap pixel ratio at 1.2 to significantly reduce fragment shader load on mobile
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.2));
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Restored HD quality
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -61,9 +60,9 @@ export class SceneManager {
         this.sun.position.set(20, 100, 20);
         this.sun.castShadow = true;
 
-        // Tightened Shadow Camera - Optimized Resolution
-        this.sun.shadow.mapSize.width = 512; // Reduced from 1024 for mobile perf
-        this.sun.shadow.mapSize.height = 512;
+        // Shadow Camera - High Quality
+        this.sun.shadow.mapSize.width = 1024;
+        this.sun.shadow.mapSize.height = 1024;
         this.sun.shadow.camera.near = 100;
         this.sun.shadow.camera.far = 1500;
         this.sun.shadow.camera.left = -50;
