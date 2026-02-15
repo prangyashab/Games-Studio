@@ -40,6 +40,12 @@ class Game {
                 this.uiManager.updateLoading(progress);
             });
             this.uiManager.hideLoading();
+
+            // Force initial map state to ensure colors/lighting are correct from the start
+            this.sceneManager.setMapType('city');
+            this.entityManager.setMap('city');
+            // We don't need to call createLevel here because loadAssets already did, 
+            // but calling setMapType on SceneManager triggers the lighting/fog update fix.
         } catch (error) {
             console.error("Game Init Error:", error);
             if (this.uiManager.loadingProgress) {

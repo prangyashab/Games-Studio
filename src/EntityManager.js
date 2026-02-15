@@ -184,13 +184,13 @@ export class EntityManager {
     }
 
     async loadAssets(onProgress) {
-        // Immediately show 10% so it doesn't stay at 0%
-        if (onProgress) onProgress(0.1);
+        // Immediately show 25% so it doesn't stay at 0%
+        if (onProgress) onProgress(0.25);
 
         const loadingManager = new THREE.LoadingManager();
         loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
-            // Map actual progress (0 to 1) into (0.1 to 1.0) range
-            const p = 0.1 + (itemsLoaded / itemsTotal) * 0.9;
+            // Map actual progress (0 to 1) into (0.25 to 1.0) range
+            const p = 0.25 + (itemsLoaded / itemsTotal) * 0.75;
             if (onProgress) onProgress(p);
         };
 
@@ -208,7 +208,7 @@ export class EntityManager {
                 // Individual file progress for smoother feedback
                 if (xhr.lengthComputable && onProgress) {
                     const fileP = (xhr.loaded / xhr.total) * 0.5; // Weight car as 50%
-                    onProgress(0.1 + fileP);
+                    onProgress(0.25 + fileP);
                 }
             }, (err) => {
                 console.error("Player car failed", err);

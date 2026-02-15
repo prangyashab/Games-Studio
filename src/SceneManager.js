@@ -224,6 +224,8 @@ export class SceneManager {
         } else {
             this.scene.fog = new THREE.Fog(0xa0d7e6, 150, 600);
         }
+        // Force update of colors even if score hasn't changed
+        this._lastScore = -1;
         this.updateTimeOfDay(0);
     }
 

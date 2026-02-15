@@ -98,7 +98,7 @@ export class UIManager {
             this.loadingScreen.classList.add('hidden');
             setTimeout(() => {
                 this.loadingScreen.style.display = 'none';
-            }, 500);
+            }, 100);
         }
     }
 
@@ -319,7 +319,7 @@ export class UIManager {
                 const steerDisplay = this.controlMode === 'buttons' ? 'flex' : 'none';
                 if (this.leftButton) this.leftButton.style.display = steerDisplay;
                 if (this.rightButton) this.rightButton.style.display = steerDisplay;
-            }, 500);
+            }, 100);
         }
     }
 
