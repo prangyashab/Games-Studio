@@ -4,6 +4,7 @@ export class InputManager {
         this.moveRight = false;
         this.isGameOver = false;
         this.controlMode = 'buttons'; // 'buttons' or 'swipe'
+        this.tiltFactor = 1.0; // Added for analog control (Smoothness)
 
         // Swipe properties
         this.touchStartX = 0;
@@ -125,11 +126,20 @@ export class InputManager {
             const tilt = e.gamma; // Left/Right tilt in degrees
             if (tilt === null) return;
 
-            // Improved sensitivity (Lower threshold for faster response)
-            const threshold = 5;
+            // Improved sensitivity (Increased deadzone to 7 to prevent 'dragging'/drift)
+            const threshold = 7;
+            const maxTilt = 30; // Degrees for full speed
+
+            // Calculate analog intensity (Smoothness fix)
+            // 0.0 at threshold, 1.0 at maxTilt
+            let intensity = (Math.abs(tilt) - threshold) / (maxTilt - threshold);
+            intensity = Math.max(0.1, Math.min(intensity, 1.0)); // Clamp between 0.1 and 1
+
+            // Apply a curve for even smoother fine control
+            this.tiltFactor = intensity;
 
             // Inverted Logic as requested ("Tilt Left -> Go Left")
-            // Swap: Positive Gamma = Left, Negative Gamma = Right (Device dependent fix)
+            // Positive Gamma = Right, Negative Gamma = Left (Corrected)
             if (tilt > threshold) {
                 this.moveRight = true;
                 this.moveLeft = false;
@@ -139,6 +149,7 @@ export class InputManager {
             } else {
                 this.moveLeft = false;
                 this.moveRight = false;
+                this.tiltFactor = 0;
             }
         });
     }

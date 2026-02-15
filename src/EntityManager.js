@@ -940,7 +940,14 @@ export class EntityManager {
         if (this.carModel) {
             // Scale movement by delta time (normalized to 60fps)
             const timeScale = deltaTime / 0.016;
-            const moveSpeed = 0.15 * timeScale;
+            let moveSpeed = 0.15 * timeScale;
+
+            // Apply Analog Tilt Smoothing
+            if (input.controlMode === 'tilt') {
+                // Scale speed by tilt intensity (gentle tilt = slow move, hard tilt = fast move)
+                moveSpeed *= (input.tiltFactor !== undefined ? input.tiltFactor : 1);
+            }
+
             let limit = this.roadWidth / 2 - 1;
 
             // Stricter limit for Desert map to prevent visual clipping with sand
