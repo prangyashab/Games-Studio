@@ -131,11 +131,11 @@ export class InputManager {
             // Inverted Logic as requested ("Tilt Left -> Go Left")
             // Swap: Positive Gamma = Left, Negative Gamma = Right (Device dependent fix)
             if (tilt > threshold) {
-                this.moveLeft = true;
-                this.moveRight = false;
-            } else if (tilt < -threshold) {
                 this.moveRight = true;
                 this.moveLeft = false;
+            } else if (tilt < -threshold) {
+                this.moveLeft = true;
+                this.moveRight = false;
             } else {
                 this.moveLeft = false;
                 this.moveRight = false;
