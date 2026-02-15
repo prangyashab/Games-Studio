@@ -37,7 +37,7 @@ export class EntityManager {
         this.carBaseY = 0;
         this.kerbWidth = 0.3;
         this.pointRadius = 0.3;
-        this.buildingSpacing = 25; // Balanced spacing for performance
+        this.buildingSpacing = 40; // Increased spacing (was 25) to reduce object count significantly
         this.lightSpacing = 40;
 
         // State

@@ -11,14 +11,15 @@ export class SceneManager {
         this.scene.background = new THREE.Color(0xa0d7e6);
         this.scene.fog = new THREE.Fog(0xa0d7e6, 150, 600);
 
-        // Renderer Config - PREMIUM HD SETUP
+        // Renderer Config - BALANCED PERFORMANCE
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Capped at 1.5x for better mobile performance
+        // Cap pixel ratio at 1.2 to significantly reduce fragment shader load on mobile
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.2));
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Soft but high quality
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.2; // Slightly lowered for richer colors
-        this.renderer.outputColorSpace = THREE.SRGBColorSpace; // Modern color accuracy
+        this.renderer.toneMappingExposure = 1.2;
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
         const container = document.getElementById(canvasId);
         if (container) {
@@ -60,9 +61,9 @@ export class SceneManager {
         this.sun.position.set(20, 100, 20);
         this.sun.castShadow = true;
 
-        // Tightened Shadow Camera to remove jitter/shimmering
-        this.sun.shadow.mapSize.width = 1024; // Balanced for quality/performance
-        this.sun.shadow.mapSize.height = 1024;
+        // Tightened Shadow Camera - Optimized Resolution
+        this.sun.shadow.mapSize.width = 512; // Reduced from 1024 for mobile perf
+        this.sun.shadow.mapSize.height = 512;
         this.sun.shadow.camera.near = 100;
         this.sun.shadow.camera.far = 1500;
         this.sun.shadow.camera.left = -50;
