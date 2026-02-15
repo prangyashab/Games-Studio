@@ -191,7 +191,7 @@ export class SceneManager {
         this.scene.add(this.clouds);
         const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, fog: false });
 
-        for (let i = 0; i < 40; i++) {
+        for (let i = 0; i < 20; i++) {
             const cloudGroup = new THREE.Group();
             const numParts = 2 + Math.floor(Math.random() * 3);
             for (let j = 0; j < numParts; j++) {
